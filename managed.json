@@ -1,0 +1,4363 @@
+[
+  {
+    "name": "AWS_S3_OBJECTS_AGED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_S3_OBJECTS_AGED_V2",
+    "input_parameters": {
+      "DaysElapsed": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "ServiceAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_S3_OBJECTS_DUPLICATE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_S3_OBJECTS_DUPLICATE_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "ServiceAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ORPHANED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWSOrphanedResources_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_RESOURCE_UNDERUTILISED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWSResourceUU_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      },
+      "MetricName": {
+        "type": "string",
+        "optional": true
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "ENFORCE_TAG_ALL_RESOURCES",
+    "query_source": "MongoDB",
+    "query_source_identifier": "service_resource_inventory",
+    "database_ref": "resource_inventory",
+    "query": "[{\"$match\": {\"tags.{TagName}\": {\"$exists\": false}}}, {\"$project\": {\"ResourceType\": \"$resource\", \"ResourceId\": \"$check_resource_element\", \"_id\": 0, \"Location\": \"$resource_filter\", \"ResourceName\": \"$check_resource_element\"}}]",
+    "input_parameters": {
+      "TagName": {
+        "type": "string",
+        "query_field": true
+      }
+    },
+    "default_query": {
+      "is_deleted": false
+    },
+    "service_account_ref": {
+      "key_name": "service_account_id",
+      "key_type": "string"
+    }
+  },
+  {
+    "name": "AWS_RESOURCE_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWSIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_MSSQL_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.Azure_MSSQL_IDLE",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_RESOURCE_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_ORPHANED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureOrphanedResources_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_RESOURCE_UNDERUTILISED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureResourceUU_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      },
+      "MetricName": {
+        "type": "string",
+        "optional": true
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "FORCASTED_AMOUNT_EXCEEDS_BUDGET_AMOUNT",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "forecasted_amount_exceeded_budget",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_WORKSPACES_BILLING_OPTION_RECOMMEND",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "aws_workspace_recommendation",
+    "input_parameters": {
+      "ValueLimit": {
+        "type": "number"
+      },
+      "StandardLimit": {
+        "type": "number"
+      },
+      "PerformanceLimit": {
+        "type": "number"
+      },
+      "PowerLimit": {
+        "type": "number"
+      },
+      "PowerProLimit": {
+        "type": "number"
+      },
+      "GraphicsLimit": {
+        "type": "number"
+      },
+      "GraphicsProLimit": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "ACTUAL_AMOUNT_EXCEEDED_BUDGET_AMOUNT",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "actual_amount_exceeded_budget",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_ACCOUNT_SCOPE_BUDGET",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "aws_budgets",
+    "class_name": "AwsAccountLevelBudget",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_REGION_SCOPE_BUDGET",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "aws_budgets",
+    "class_name": "AwsRegionLevelBudget",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AZURE_RESOURCE_GROUP_SCOPE_BUDGET",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "azure_resource_group_level_budget",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AZURE_SUBSCRIPTION_SCOPE_BUDGET",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "azure_subscription_level_budget",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_BUCKET_DATA_INGESTION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "gcp_bucket_data_ingestion",
+    "input_parameters": {
+      "data_size_in_GB": {
+        "type": "number"
+      },
+      "time_interval_in_minutes": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "GCP_AUDIT_RESOURCE_PROVISION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "gcp_audit_resource_provision",
+    "input_parameters": {
+      "number_of_resources": {
+        "type": "number"
+      },
+      "time_interval_in_minutes": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "GCP_AUDIT_RESOURCE_MODIFICATION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "gcp_audit_resource_modification",
+    "input_parameters": {
+      "number_of_resources": {
+        "type": "number"
+      },
+      "time_interval_in_minutes": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "GCP_AUDIT_FREQUENT_AUTOSCALING",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "gcp_audit_frequent_autoscaling",
+    "input_parameters": {
+      "number_of_times": {
+        "type": "number"
+      },
+      "time_interval_in_minutes": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "AWS_EBS_PROVISIONED_IOPS_io2_SSD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_EBS_PROVISIONED_IOPS_io2_SSD_RECOMMEND_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EBS_GENERAL_PURPOSE_gp2_SSD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_EBS_GENERAL_PURPOSE_gp2_SSD_RECOMMEND_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EBS_THROUGHPUT_OPTIMIZED_st1_HDD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_EBS_THROUGHPUT_OPTIMIZED_st1_HDD_RECOMMEND",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EBS_COLD_sc1_HDD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_EBS_COLD_sc1_HDD_RECOMMEND_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EBS_MAGNETIC_HDD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_EBS_MAGNETIC_HDD_RECOMMEND_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "LIST_AWS_ACCOUNT_WITH_MORE_THAN_ONE_CLOUDTRAILS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_cloud_trails",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_EC2_Metric_CPU_Usage",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_EC2_Metric_CPU_Usage",
+    "input_parameters": {
+      "MetricPercentage": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EC2_Metric_CPU_CreditBalance_Zero",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_EC2_Metric_CPU_CreditBalance0",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_Automation_Failure_Past_At_NoofDays",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_Automation_FailurePast",
+    "input_parameters": {
+      "NoofDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_Automation_Failure_Past_At_NoofDays_NoofTimesPast",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_Automation_FailureNoofTimesPast",
+    "input_parameters": {
+      "NoofDays": {
+        "type": "string"
+      },
+      "NoofTimes": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_Activitylog_Failure",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_Activitylog_Failure",
+    "input_parameters": {
+      "NoofTimes": {
+        "type": "string"
+      },
+      "NoofDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EBS_PercentageofVolumeswithoutSnapshots",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_EBS_PercentageofVolumeswithoutSnapshots",
+    "input_parameters": {
+      "NoofDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EC2_PercentageofInstanceswithoutBackup",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_EC2_PercentageofInstanceswithoutBackup",
+    "input_parameters": {
+      "NoofDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EC2_INSTANCE_AGED_STOP_STATE_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_EC2_INSTANCE_AGED_STOP_STATE_RECOMMEND_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RI_UNDERUTILISED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.RI_UnderUtilized",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      },
+      "UnusedPercentage": {
+        "type": "string"
+      },
+      "RIType": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EC2_METRIC_STATUS_CHECK_FAILED",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_EC2_Metric_StatusCheckFailed",
+    "input_parameters": {
+      "MetricPercentage": {
+        "type": "string"
+      },
+      "NoofDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ALARM_CONFIGURATION",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_Alarm_Configuration",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RDS_DB_WITHOUT_BACKUP_LAST_24_HOURS",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_RDSDBs_without_backuplast24hours",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RDS_DB_WITHOUT_BACKUP",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_RDSDBs_without_backuplast",
+    "input_parameters": {
+      "NoofDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RDS_DB_CLUSTER_WITHOUT_BACKUP_LAST_24_HOURS",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_RDSDBCluster_without_backuplast24hours",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RDS_DB_CLUSTER_WITHOUT_BACKUP",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_RDSDBsCluster_without_backuplast",
+    "input_parameters": {
+      "NoofDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_SAVINGS_PLANS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_savings_plans",
+    "auth_values_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_PURCHASE_RESERVED_INSTANCES",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_Purchase_Reserved_Instances",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RDS_STORAGE_IO2_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_RDS_Storage_io2recommend",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RDS_EBS_GENERAL_PURPOSE_GP2_SSD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_RDS_EBS_GENERAL_PURPOSE_gp2_SSD_RECOMMEND",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RDS_EBS_MAGNETIC_HDD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_RDS_EBS_MAGNETIC_HDD_RECOMMEND",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EC2_INSTANCES_ALERTS_EXCEEDING_FREE_TIER_LIMITS",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_EC2_Instances_Alerts_exceeding_freetierlimits",
+    "input_parameters": {
+      "NoofTimes": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ALARM_THRESHOLD_INCONSISTENCY_FOR_EC2_INSTANCES",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_AlarmThresholdInconsistencyForEC2Instance",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ALARM_MISSING_FOR_CRITICAL_METRIC",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_AlarmMissingforCriticalMetric",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ALERT_TRACKING",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_Alert_Tracking",
+    "input_parameters": {
+      "NoofHour": {
+        "type": "number"
+      },
+      "Priority": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ACTIVITY_TRACKING",
+    "query_source": "SQL",
+    "query_source_identifier": "OperationPolicy.AWS_Activity_Tracking",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_RECENTLY_PURCHASED_RESERVATIONS",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "azure_recently_purchased_reservations",
+    "input_parameters": {
+      "No_of_days": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "AZURE_AUDIT_NSG_CUSTOM_RULES",
+    "query_source": "MongoDB",
+    "database_ref": "resource_inventory",
+    "code_ref": "azure_audit_nsg_custom_rules",
+    "input_parameters": {}
+  },
+  {
+    "name": "AZURE_VM_RESERVATION_EXPIRY",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "azure_virtual_machine_reservation_expiry",
+    "input_parameters": {
+      "No_of_days": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "AWS_EC2_RESERVATION_EXPIRY",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "aws_ec2_reservation_expiry",
+    "input_parameters": {
+      "No_of_days": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "AZURE_SQL_RESERVATION_EXPIRY",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "azure_sql_reservation_expiry",
+    "input_parameters": {
+      "No_of_days": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "AZURE_HIGH_VULNERABILITY_CHECK_IN_VM",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_vulnerability_in_vm",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_HIGH_VULNERABILITY_CHECK_IN_VM",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_vulnerability_in_vm",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_RESOURCE_UNDERUTILISED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_GCPResourceUU",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      },
+      "MetricName": {
+        "type": "string",
+        "optional": true
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "GCPIdleResources",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_GCPIdleResources",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "GCPOrphanedResources",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_GCPOrphanedResources",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_EFS_LIFECYCLE_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_EFS_LifeCycle_Recommend",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_DYNAMODB_TABLE_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_DYNAMODB_TABLE_IDLE",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_DYNAMODB_TABLE_CAPACITY_MODE_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_DYNAMODB_TABLE_CAPACITY_MODE_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_DYNAMODB_GLOBAL_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_DYNAMODB_TABLE_GLOBAL_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_DYNAMODB_TABLE_READS_UNDERUTILIZED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_DYNAMODB_TABLE_READS_WRITES_UNDERUTILIZED",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      },
+      "MetricName": {
+        "type": "string",
+        "optional": true
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_DYNAMODB_TABLE_UNDERUTILIZED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_DYNAMODB_TABLE_READS_WRITES_UNDERUTILIZED",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AZURE_NO_RESERVATIONS_PURCHASED_INSPITE_OPEN_RECOMMENDATION",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.Azure_Purchase_Reserved_Instances",
+    "input_parameters": {},
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RDS_General_Purpose_gp2_SSD_Recommend",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_RDS_EBS_GENERAL_PURPOSE_gp2_SSD_RECOMMEND",
+    "input_parameters": {},
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_WORKSPACES_DISKS_UNDERUTILIZED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWS_Workspaces_Disks_UU",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_Dynamo_Db_Table_Backup_Recommend",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_DYNAMODB_TABLE_BACKUP_RECOMMEND",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_Reserved_Instance_Lease_Expiration",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_Reserved_Instance_Lease_Expiration",
+    "input_parameters": {
+      "RIType": {
+        "type": "string"
+      },
+      "ProjectID": {
+        "type": "string"
+      },
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_EFS_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_EFS_IDLE",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "GCPBucketIdleResources",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_GCP_Buckets_Idle",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "GCPDiskIdle",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.GCP_DISKS_IDLE",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "GCPBigQueryJobAnalysisPerUser",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.GCP_BigQuery_Job_Analysis_Per_User_Recommend",
+    "input_parameters": {
+      "Threshold": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "GCPBigQueryJobAnalysisPerTable",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.GCP_BigQuery_Job_Analysis_Per_Table_Recommend",
+    "input_parameters": {
+      "Threshold": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "GCPBigQueryJobAnalysisPerProject",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.GCP_BigQuery_Job_Analysis_Per_Project_Recommend",
+    "input_parameters": {
+      "Threshold": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "GCPBigQueryReservationSlotsRecommend",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.GCP_BigQuery_Reservation_Slots_Recommend",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "GCPBigQueryReservationSlotsUnderutilized",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.GCP_BigQuery_Reservation_Slots_Underutilized",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "GCPBigQueryTimeoutRecommend",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.GCP_BigQuery_Timeout_Recommend",
+    "input_parameters": {
+      "Threshold": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_Workspaces_UnderUtilized",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_Workspaces_UU",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment",
+    "AttributesSupported": true
+  },
+  {
+    "name": "AWS_Lambda_Execution_Duration",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_LAMBDA_EXECUTION_DURATION_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_Lambda_Error_Execution",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_LAMBDA_ERROR_IN_EXECUTION_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_STORAGE_MANAGED_DISK_STANDARD_HDD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AZURE_STORAGE_MANAGED_DISK_STANDARD_HDD_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_STORAGE_MANAGED_DISK_STANDARD_SSD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AZURE_STORAGE_MANAGED_DISK_STANDARD_SSD_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_Workspaces_Unused",
+    "query_source": "MongoDB",
+    "database_ref": "billing_and_cost_analytics",
+    "code_ref": "aws_workspace_unused",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "AWS_UNHEALTHY_WORKSPACES",
+    "query_source": "MongoDB",
+    "query_source_identifier": "service_resource_inventory",
+    "database_ref": "resource_inventory",
+    "query": "[{\"$match\": {\"resource\" : \"Workspaces\", \"summary_details.State\": \"UNHEALTHY\"}}, {\"$project\": {\"ResourceType\": \"$resource\", \"ResourceId\": \"$check_resource_element\", \"_id\": 0, \"Region\": \"$resource_filter\", \"ResourceName\": \"$check_resource_element\", \"UserName\": \"$summary_details.UserName\", \"DirectoryId\": \"$summary_details.DirectoryId\", \"BundleType\": \"$summary_details.WorkspaceProperties.ComputeTypeName\", \"RunningMode\": \"$summary_details.WorkspaceProperties.RunningMode\", \"WorkspaceStatus\": \"$summary_details.State\"}}]",
+    "input_parameters": {},
+    "default_query": {
+      "is_deleted": false
+    },
+    "service_account_ref": {
+      "key_name": "service_account_id",
+      "key_type": "string"
+    }
+  },
+  {
+    "name": "AWS_Lambda_Execution_Count_Recommend",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_LAMBDA_EXECUTION_COUNT_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ECS_CLUSTER_SPOT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_ECS_CLUSTER_SPOT_RECOMMEND",
+    "input_parameters": {},
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ECS_FARGATE_SPOT_MIX_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_ECS_FARGATE_SPOT_MIX_RECOMMEND",
+    "input_parameters": {},
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_CHECK_IAM_USER_PASSWORD_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "check_iam_user_password_policy",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_API_GATEWAY_CLIENT_CERTIFICATE_VALIDATE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_api_gateway",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_SNS_SUBSCRIPTION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_sns_subscription",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EBS_SNAPSHOTS_ACCESS_UNMONITORED_CLOUD_ACCOUNT",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_snapshot_permission",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_RDS_CLUSTER_ENCRYPTION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_rds_cluster_encryption",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_RDS_SNAPSHOT_ENCRYPTION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_rds_snapshots_encryption",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_EMR_DATA_ENCRYPTION_AT_REST",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_emr_data_encryption_at_rest",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_EMR_DATA_ENCRYPTION_AT_TRANSIT",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_emr_data_encryption_at_transit",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_EMR_LOCAL_DISK_ENCRYPTION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_emr_local_disk_encryption",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_ELASTIC_CACHE_ENCRYPTION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_elastic_cache_encryption",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_REDSHIFT_AUDIT_LOGGING",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_redshift_audit_logging",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_KINESIS_STREAMS_ENCRYPTED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_kinesis_streams_encrypted",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_ECS_TASK_DEFINITION_ROOT",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_ecs_task_definition_root",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_ECS_TASK_DEFINITION_PRIVILEGES_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "check_ecs_task_definition_privileges_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_TAG_LEVEL_BUDGET",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_TAG_LEVEL_BUDGET",
+    "input_parameters": {},
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RESOURCES_WITHOUT_TAGS",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_RESOURCES_WITHOUT_TAGS",
+    "input_parameters": {
+      "Mode": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_COST_OF_RESOURCES_WITHOUT_TAGS",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_COST_OF_RESOURCES_WITHOUT_TAGS",
+    "input_parameters": {
+      "Mode": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_LOG4J_VULNERABILITY_FINDING",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "find_log4j_vulnerability",
+    "input_parameters": {
+      "CVE_ID": {
+        "type": "string"
+      }
+    }
+  },
+  {
+    "name": "AWS_REDSHIFT_CLUSTERS_NOT_PUBLICLY_ACCESSIBLE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_redshift_clusters_not_publicly_accessible",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_SECURITY_GROUP_OVERLY_PERMISSIVE_TO_ALL_TRAFFIC",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_security_group_overly_permissive_to_all_traffic",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CLOUD_FRONT_PROTOCOL_POLICY_DOES_NOT_ENFORCE_HTTPS_ONLY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_cloud_front_protocol_policy_does_not_enforce_https_only",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CLOUDTRAIL_BUCKET_NOT_PUBLICLY_ACCESSIBLE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cloudtrail_bucket_publicly_accessible",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_IAM_HAS_EXPIRED_SSL_TLS_CERTIFICATES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_has_expired_ssl_tls_certificates",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_PUBLIC_IP_ASSOCIATED_WITH_SECURITY_GROUP_HAVE_INTERNET_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_public_ip_associated_with_sg_have_internet_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_NETWORK_ACLS_WITH_INBOUND_RULE_ALLOW_ALL_TRAFFIC",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_network_acls_with_inbound_rule_allow_all_traffic",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_NETWORK_ACLS_WITH_OUTBOUND_RULE_ALLOW_ALL_TRAFFIC",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_network_acls_with_outbound_rule_allow_all_traffic",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_S3_BUCKETS_NOT_CONFIGURED_WITH_SECURE_DATA_TRANSPORT_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_s3_buckets_not_configured_with_secure_data_transport_policy",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_S3_BUCKETS_ARE_ACCESSIBLE_TO_ANY_AUTHENTICATED_USER",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_s3_buckets_are_accessible_to_any_authenticated_user",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_REDSHIFT_DOES_NOT_HAVE_REQUIRED_SSL_CONFIGURATION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_redshift_does_not_have_required_ssl_configuration",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_RDS_INSTANCE_NOT_IN_PRIVATE_SUBNET",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_rds_instance_not_in_private_subnet",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_SNS_TOPIC_ENCRYPTED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_encrypted_sns_topic",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_SNS_TOPIC_EXPOSED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_sns_topic_exposed",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_RDS_TRANSPORT_ENCRYPTION_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_rds_transport_encryption",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_S3_BUCKET_LOGGING_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_s3_bucket_logging_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_IAM_GROUP_HAS_USERS_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_group_has_users_check",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_IAM_UNUSED_CREDENTIAL_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_unused_credential_check",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_ELB_CUSTOM_SECURITY_POLICY_SSL_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_elb_custom_security_policy_ssl_check",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_MANAGED_INSTANCE_APPLICATIONS_BLACKLISTED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_managed_instance_applications_blacklisted",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_IAM_POLICY_NO_STATEMENTS_WITH_ADMIN_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_policy_no_statements_with_admin_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_IAM_USER_NO_POLICIES_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_user_no_policies_check",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_VOLUME_INUSE_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_volume_inuse_check",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_APPROVED_AMIS_BY_TAGS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_approved_amis_by_tags",
+    "input_parameters": {
+      "ami_tag": {
+        "type": "string"
+      }
+    }
+  },
+  {
+    "name": "AWS_EC2_INSTANCES_DETAILED_MONITORING_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_instances_detailed_monitoring_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_IAM_ACCESS_KEY_ROTATED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_access_key_rotated",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_ENCRYPTED_VOLUMES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_encrypted_volumes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_ROOT_ACCOUNT_MFA_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_root_account_mfa_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_MFA_ENABLED_FOR_IAM_CONSOLE_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_mfa_enabled_for_iam_console_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_APPROVED_AMIS_BY_ID",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_approved_amis_by_id",
+    "input_parameters": {
+      "ami_id": {
+        "type": "string"
+      }
+    }
+  },
+  {
+    "name": "AWS_S3_BUCKET_VERSIONING_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_s3_bucket_versioning_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_S3_BUCKET_SERVERSIDE_ENCRYPTION_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_s3_bucket_serverside_encryption_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_INSTANCES_MANAGED_BY_SSM",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_instances_managed_by_ssm",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_INSTANCES_IN_VPC",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_instances_in_vpc",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_VPC_DEFAULT_SECURITY_GROUP_CLOSED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_vpc_default_security_group_closed",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_ELB_LOGGING_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_elb_logging_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_ROOT_ACCOUNT_HARDWARE_MFA_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_root_account_hardware_mfa_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_REQUIRED_TAGS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_required_tags",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_RDS_SNAPSHOTS_PUBLIC_ACCESS_PROHIBITED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_rds_snapshots_public_access_prohibited",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_S3_BUCKET_PUBLIC_READ_ACCESS_PROHIBITED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_s3_bucket_public_read_access_prohibited",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_S3_BUCKET_REPLICATION_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_s3_bucket_replication_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_RESTRICTED_SSH",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_restricted_ssh",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_IAM_USERS_GROUP_MEMBERSHIP_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_users_group_membership_check",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_RESTRICTED_COMMON_PORTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_restricted_common_ports",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_IAM_ROOT_ACCESS_KEY_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_root_access_key_check",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_IAM_USER_MFA_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_user_mfa_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_ALB_HTTP_TO_HTTPS_REDIRECTION_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_alb_http_to_https_redirection_check",
+    "input_parameters": {}
+  },
+  {
+    "name": "EC2_INSTANCE_NO_PUBLIC_IP",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_instance_no_public_ip",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNUSED_IAM_ACCESS_KEYS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_unused_iam_access_keys",
+    "input_parameters": {}
+  },
+  {
+    "name": "AUDIT_ALERT_CONFIGURATION_MONITORING_SECURITY_GROUP_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "audit_alert_configuration_monitoring_security_group_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CHECK_LOG_MONITORING_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_check_log_monitoring_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_IAM_USER_EXISTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_iam_user_exists",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_EC2_INSTANCE_USING_IAM_ROLES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_ec2_instance_using_iam_roles",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_ELASTICSEARCH_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_elasticsearch_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_HTTPS_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_https_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_HTTP_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_http_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_INBOUND_ACCESS_ON_UNCOMMON_PORTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_inbound_access_on_uncommon_ports",
+    "input_parameters": {
+      "ports": {
+        "type": "string"
+      }
+    }
+  },
+  {
+    "name": "AWS_AUDIT_SSH_PUBLIC_KEYS_ROTATED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_ssh_public_keys_rotated",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "input_parameters": {
+      "days_limit": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_MONGODB_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_mongodb_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_MSSQL_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_mssql_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_MYSQL_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_mysql_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_NETBIOS_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_netbios_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_ORACLE_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_oracle_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_OUTBOUND_ACCESS_ON_ALL_PORT",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_outbound_access_on_all_port",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_POSTGRES_SQL_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_postgres_sql_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_RDP_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_rdp_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_UNRESTRICTED_RPC_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unrestricted_rpc_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_IAM_USER_PASSWORD_EXPIRY_30_DAYS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_iam_user_password_expiry_30_days",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_IAM_USERS_WITH_ADMIN_PRIVILEGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_iam_users_with_admin_privileges",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_INACTIVE_IAM_USER",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_inactive_iam_user",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_S3_BUCKET_MFA_DELETE_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_s3_bucket_mfa_delete_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_SSH_PUBLIC_KEYS_ROTATED_30_DAYS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_ssh_public_keys_rotated_30_days",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_SSH_PUBLIC_KEYS_ROTATED_45_DAYS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_ssh_public_keys_rotated_45_days",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_SSH_PUBLIC_KEYS_ROTATED_90_DAYS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_ssh_public_keys_rotated_90_days",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_EC2_EBS_ENCRYPTION_BY_DEFAULT",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_ec2_ebs_encryption_by_default",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_EC2_STOPPED_INSTANCE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_ec2_stopped_instance",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_S3_ACCOUNT_LEVEL_PUBLIC_ACCESS_BLOCKS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_s3_account_level_public_access_blocks",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_SSL_TLS_CERTIFICATE_EXPIRE_30_DAYS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_ssl_tls_certificate_expire_30_days",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_SSL_TLS_CERTIFICATE_EXPIRE_45_DAYS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_ssl_tls_certificate_expire_45_days",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_SSL_TLS_CERTIFICATE_EXPIRE_7_DAYS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_ssl_tls_certificate_expire_7_days",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_S3_BUCKET_OPEN_TO_THE_WORLD_WITH_NO_ENCRYPTION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_s3_bucket_open_to_the_world_with_no_encryption",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_DYNAMODB_UNUSED_TABLES_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_DYNAMODB_UNUSED_TABLES_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_AUDIT_UNATTACHED_EBS_VOLUMES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_unattached_ebs_volumes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_MQ_IS_PUBLICLY_ACCESSIBLE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_mq_is_publicly_accessible",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_REDSHIFT_INSTANCES_NOT_ENCRYPTED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_redshift_instances_not_encrypted",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_S3_BUCKET_GET_GLOBAL_BUCKET_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_s3_bucket_get_global_bucket_policy",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_EC2_PUBLICLY_SHARED_AMI",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_ec2_publicly_shared_ami",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_RDS_INSTANCE_NOT_IN_PUBLIC_SUBNET",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_rds_instance_not_in_public_subnet",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_RDS_COPY_TAGS_TO_SNAPSHOTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_rds_copy_tags_to_snapshots",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ACM_CERTIFICATES_WITH_WILDCARD_DOMAIN_NAMES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_acm_certificates_with_wildcard_domain_names",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ELASTICSEARCH_DOMAIN_PUBLICLY_ACCESSIBLE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_elasticsearch_domain_publicly_accessible",
+    "input_parameters": {}
+  },
+  {
+    "name": "GCP_AUDIT_COST_FOR_RESOURCE_TYPE_TO_SCALE_ANOMALY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "master_auth_required": true,
+    "code_ref": "audit_cost_for_the_gcp_resource_type_to_scale_anomaly",
+    "input_parameters": {
+      "percentage_to_check": {
+        "type": "string"
+      }
+    }
+  },
+  {
+    "name": "Deallocated_Virtual_Machines_with_Managed_Disks_Attached",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AZURE_VM_DEALLOCATED_STATE_WITH_MANAGED_DISK",
+    "input_parameters": {},
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_AUDIT_ACM_CERT_VALIDITY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_acm_cert_validity",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ECR_REPOSITORY_EXPOSED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_ecr_repository_exposed",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_EBS_NOT_ENCRYPTED_WITH_CMK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_ebs_not_encrypted_with_cmk",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_EBS_VOLUMES_ATTACHED_STOPPED_EC2",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_ebs_volumes_attached_stopped_ec2",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ELB_LISTENERS_HTTPS_SSL",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_elb_listeners_https_ssl",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "CHECK_WHETHER_ECS_IS_CONFIGURED_WITH_CLOUD_WATCH",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_whether_ecs_is_configured_with_cloud_watch",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "CONFIGURE_YOUR_TASKS_TO_USE_THE_AWS_VPC_NETWORK_MODE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "configure_your_tasks_to_use_the_aws_vpc_network_mode",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "ENSURE_AWS_ELASTICACHE_CLUSTER_ARE_NOT_USING_THE_DEFAULT_PORTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_aws_elasticache_cluster_are_not_using_the_default_ports",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "ENSURE_AWS_ELASTICACHE_CLUSTER_ARE_DEPLOYED_INTO_A_VIRTUAL_PRIVATE_CLOUD",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_aws_elasticache_cluster_are_deployed_into_a_virtual_private_cloud",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "ENSURE_THAT_ALL_YOUR_AWS_ELASTICACHE_CLUSTER_CACHE_NODES_ARE_OF_GIVEN_TYPES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_that_all_your_aws_elasticache_cluster_cache_nodes_are_of_given_types",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {
+      "valid_instance_type": {
+        "type": "string",
+        "description": "comma separated valid instance types"
+      }
+    }
+  },
+  {
+    "name": "ENSURE_THAT_THE_LATEST_VERSION_OF_REDIS_MEMCACHED_IS_USED_FOR_ELASTICACHE_CLUSTER",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_that_the_latest_version_of_redis_memcached_is_used_for_elasticache_cluster",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {
+      "memcached_version": {
+        "type": "string",
+        "description": "Memcached version"
+      },
+      "redis_version": {
+        "type": "string",
+        "description": "Redis version"
+      }
+    }
+  },
+  {
+    "name": "ENSURE_INTRANSIT_AND_ATREST_ENCRYPTION_IS_ENABLED_FOR_AWS_ELASTICACHE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_intransit_and_atrest_encryption_is_enabled_for_aws_elasticache",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "ENSURE_AWS_ELASTICACHE_REDIS_CLUSTERS_HAVE_THE_MULTI_AZ_FEATURE_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_aws_elasticache_redis_clusters_have_the_multi_az_feature_enabled",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "ENSURE_AWS_ELASTICSEARCH_DOMAINS_ARE_ENCRYPTED_WITH_KMS_CUSTOMER_MASTER_KEYS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_aws_elasticsearch_domains_are_encrypted_with_kms_customer_master_keys",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "ENSURE_ONLY_WHITELISTED_IP_ADDRESSES_CAN_ACCESS_YOUR_AMAZON_ELASTICSEARCH_DOMAINS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_only_whitelisted_ip_addresses_can_access_your_amazon_elasticsearch_domains",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {
+      "approved_ipv4": {
+        "type": "string",
+        "description": "comma separated IPV4 range addresses or a single IPV4 address"
+      }
+    }
+  },
+  {
+    "name": "ENSURE_AWS_ELASTICSEARCH_CLUSTERS_DO_NOT_ALLOW_UNKNOWN_CROSS_ACCOUNT_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_aws_elasticsearch_clusters_do_not_allow_unknown_cross_account_access",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {
+      "allowed_arn": {
+        "type": "string",
+        "description": "ARN value of the cloud account"
+      }
+    }
+  },
+  {
+    "name": "ENSURE_AWS_ELASTICSEARCH_CLUSTERS_ARE_USING_DEDICATED_MASTER_NODES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_aws_elasticsearch_clusters_are_using_dedicated_master_nodes",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "ENSURE_THAT_ALL_YOUR_AWS_ELASTICSEARCH_CLUSTER_INSTANCES_ARE_OF_GIVEN_INSTANCE_TYPES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_that_all_your_aws_elasticsearch_cluster_instances_are_of_given_instance_types",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {
+      "instance_type": {
+        "type": "string",
+        "description": "Comma separated instance type values"
+      }
+    }
+  },
+  {
+    "name": "ENSURE_AWS_ELASTICSEARCH_SERVICE_DOMAINS_ARE_NOT_EXPOSED_TO_EVERYONE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_aws_elasticsearch_service_domains_are_not_exposed_to_everyone",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "ENSURE_AWS_ELASTICSEARCH_DOMAINS_ARE_ACCESSIBLE_FROM_A_VPC",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_aws_elasticsearch_domains_are_accessible_from_a_vpc",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "ENSURE_HIGH_AVAILABILITY_FOR_YOUR_AWS_ELASTICSEARCH_CLUSTERS_BY_ENABLING_THE_ZONE_AWARENESS_FEATURE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "ensure_high_availability_for_your_aws_elasticsearch_clusters_by_enabling_the_zone_awareness_feature",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "CHECK_WHETHER_AWS_EKS_SECURITY_GROUPS_ARE_CONFIGURED_TO_ALLOW_INCOMING_TRAFFIC_ONLY_ON_TCP_PORT_443",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_whether_aws_eks_security_groups_are_configured_to_allow_incoming_traffic_only_on_tcp_port_443",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "VERIFY_THAT_YOUR_LIGHTSAIL_BUCKETS_ARE_NOT_PUBLICLY_ACCESSIBLE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "verify_that_your_lightsail_buckets_are_not_publicly_accessible",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "CHECK_WHETHER_INSTANCES_ARE_ATTACHED_TO_LIGHTSAIL_BUCKETS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_whether_instances_are_attached_to_lightsail_buckets",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "CHECK_CROSS_ACCOUNT_ACCESS_TO_GIVE_OTHER_AWS_ACCOUNTS_ACCESS_TO_OBJECTS_IN_YOUR_BUCKET",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "check_cross_account_access_to_give_other_aws_accounts_access_to_objects_in_your_bucket",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "GCP_SQL_Instances_Idle",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_GCP_SQL_Instances_Idle",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "number"
+      },
+      "Value": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "GCP_SQL_Instances_Orphaned",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_GCP_Orphan_SQL_Instances",
+    "input_parameters": {
+      "Attributes": {
+        "type": "string"
+      },
+      "Value": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ECS_LAUNCHTYPE_FARGATE_EC2_MIX",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AWS_ECS_LAUNTYPE_FARGATE_EC2_MIX",
+    "input_parameters": {},
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_VIRTUAL_MACHINE_INSTANCE_AGED_STOP_STATE_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AZURE_VIRTUAL_MACHINE_INSTANCE_AGED_STOP_STATE_RECOMMEND_V2",
+    "input_parameters": {
+       "ElapsedDays": {
+        "type": "number"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_VALIDATE_APPLICATION_SECRET_KEY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "master_auth_required": false,
+    "code_ref": "azure_validate_application_secret_key",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_COST_CATEGORY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_cost_category_definition",
+    "auth_values_required": true,
+    "aws_account_id": true,
+    "master_account_metadata": true,
+    "input_parameters": {
+      "start_day": {
+        "type": "number"
+      }
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_REGION_RESTRICTION_USING_SCP",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_region_restriction_using_scp",
+    "auth_values_required": true,
+    "master_account_metadata": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_RESOURCE_RESTRICTION_USING_SCP",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_resource_restriction_using_scp",
+    "auth_values_required": true,
+    "master_account_metadata": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_SCP_CONFIGURED_AT_OU_LEVEL",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_scp_configured_at_ou_level",
+    "auth_values_required": true,
+    "master_account_metadata": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_BUDGET_NOTIFICATIONS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_budget_notifications",
+    "auth_values_required": true,
+    "aws_account_id": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_OU_DEFINED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_ou_defined",
+    "auth_values_required": true,
+    "master_account_metadata": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_TAG_POLICY_CONFIGURED_AT_OU_LEVEL",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_tag_policy_configured_at_ou_level",
+    "auth_values_required": true,
+    "master_account_metadata": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_TAG_POLICY_ENABLED_AT_ORG_LEVEL",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_tag_policy_enabled_at_org_level",
+    "auth_values_required": true,
+    "master_account_metadata": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_CUR_CONFIGURED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_cur_configured",
+    "auth_values_required": true,
+    "aws_account_id": true,
+    "master_account_metadata": true,
+    "input_parameters": {
+      "TimeUnit": {
+        "type": "string"
+      }
+    }
+  },
+  {
+    "name": "WAF_AWS_AUDIT_AUTO_SCALING_CONFIGURED_FOR_LOADBALANCERS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_auto_scaling_configured_for_loadbalancers",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "WAF_AWS_AUDIT_LINKED_ACCOUNT_OU_MAPPING",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "code_ref": "aws_audit_linked_account_ou_mapping",
+    "auth_values_required": true,
+    "master_account_metadata": true,
+    "input_parameters": {}
+  },
+  {
+    "name": "GCP_VALIDATE_NETWORK_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_network_access_validation_in_gcp_project",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AZURE_ADVISOR_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "rule_reference_required": true,
+    "code_ref": "get_azure_advisor_recommendations",
+    "input_parameters": {}
+  },
+  {
+    "name": "GCP_DISK_ENCRYPTION_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_disk_encryption_gcp",
+    "is_zones_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_OLD_VOLUME_SNAPSHOTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "aws_old_volume_snapshots",
+    "is_region_required": true,
+    "input_parameters": {
+      "days": {
+        "type": "number",
+        "default": 30,
+        "description": "outdated snapshot(s) to check by day(s)",
+        "optional": false
+      }
+    }
+  },
+  {
+    "name": "AWS_AUDIT_SECURITY_GROUP_PORT_VIOLATION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "aws_audit_security_group_port_violation",
+    "is_region_required": true,
+    "input_parameters": {
+      "port": {
+        "type": "number",
+        "default": 443,
+        "description": "port to check for violation",
+        "optional": false
+      }
+    }
+  },
+  {
+    "name": "AWS_REDSHIFT_USAGE_LIMIT_CROSS_REGION_DATA_SHARING_CONFIG",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWS_Redshift_Usage_Limit_Recommend",
+    "input_parameters": {
+      "FeatureType": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_REDSHIFT_USAGE_LIMIT_CONCURRENCY_SCALING_CONFIG",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWS_Redshift_Usage_Limit_Recommend",
+    "input_parameters": {
+      "FeatureType": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_REDSHIFT_USAGE_LIMIT_SPECTRUM_CONFIG",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWS_Redshift_Usage_Limit_Recommend",
+    "input_parameters": {
+      "FeatureType": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_RESOURCE_AGED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWSAgedResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "number"
+      },
+      "Attribute": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_REDSHIFT_ENHANCED_VPC_ROUTING",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWS_Redshift_Enhanced_VPC_Routing_Recommend",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_SQL_DATABASES_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_APP_SERVICE_PLAN_STANDARD_TO_BASIC_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_Azure_APP_SERVICE_PLAN_STANDARD_TO_BASIC_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_MONGO_DATABASES_THROUGHPUT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosUUResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_MONGO_DATABASES_ORPHANED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureOrphanedResources_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_MONGODB_COLLECTION_THROUGHPUT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosUUResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_MONGODB_COLLECTION_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_MONGO_DATABASES_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_GREMLIN_DATABASES_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_CASSANDRA_KEYSPACE_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_TABLE_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_SQL_DATABASES_THROUGHPUT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosUUResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_GREMLIN_DATABASES_THROUGHPUT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosUUResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_CASSANDRA_KEYSPACE_THROUGHPUT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosUUResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_TABLE_THROUGHPUT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosUUResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_SQL_CONTAINERS_THROUGHPUT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosUUResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_GREMLIN_GRAPH_THROUGHPUT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosUUResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_CASSANDRA_KEYSPACE_TABLE_THROUGHPUT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosUUResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_CASSANDRA_KEYSPACE_ORPHANED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureOrphanedResources_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_SQL_DATABASES_ORPHANED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureOrphanedResources_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_GREMLIN_DATABASES_ORPHANED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureOrphanedResources_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_APP_SERVICE_PLAN_PREMIUMV2_TO_STANDARD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_Azure_APP_SERVICE_PLAN_PREMIUMV2_TO_STANDARD_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_CW_PIPELINES_STEP_METRICS_THRESHOLD_IN_JOBSFAILED_JOBSSTOPPED_TASKSDECLINED_TIMESPENT",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "JobsFailed,JobsStopped,TasksDeclined,TimeSpent"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/Sagemaker/ModelBuildingPipeline"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_PIPELINES_STEP_METRICS_THRESHOLD_IN_EXECUTIONFAILED_EXECUTIONSTOPPED_EXECUTIONDURATION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "ExecutionFailed,ExecutionStopped,ExecutionDuration"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/Sagemaker/ModelBuildingPipeline"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_PIPELINES_STEP_METRICS_THRESHOLD_IN_STEPFAILED_STEPSTOPPED_STEPDURATION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "code_reuse": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "StepFailed,StepStopped,StepDuration"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/Sagemaker/ModelBuildingPipeline"
+      }
+    }
+  },
+  {
+    "name": "AWS_SAGEMAKER_NETWORK_ISOLATION_ENABLED_FOR_TRAINING_JOBS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_sagemaker_network_isolation_enabled_for_training_jobs",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_SAGEMAKER_TAGGING_EXISTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_sagemaker_tagging_exists",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_CW_METRICS_ENABLED_FOR_FSX_FOR_LUSTRE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "LogicalDiskUsage,PhysicalDiskUsage"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/FSx"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_FOR_LUSTRE_REST_ENCRYPTED_USING_KMS_CMKS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_fs_date_at_rest_encrypted_with_kms_cmks",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "LUSTRE"
+      },
+      "alias_name": {
+        "type": "string",
+        "optional": true,
+        "default": "alias/aws/fsx"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_LUSTRE_FS_CLIENT_VPC_SECURITY_GROUP_RULES_EXISTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_fs_client_vpc_security_group_rules_exists",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "LUSTRE"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_METRICS_ENABLED_FOR_FSX_FOR_NETAPP_ONTAP",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "DataReadBytes,DataWriteBytes,DataReadOperations,DataWriteOperations,MetadataOperations,StorageUsed,LogicalDataStored,StorageCapacity,StorageUsed"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/FSx"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_METRICS_THRESHOLD_ENABLED_FOR_AMAZON_FSX_FOR_LUSTRE_ONTAP",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "LogicalDiskUsage,PhysicalDiskUsage"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/FSx"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_METRICS_THRESHOLD_ENABLED_FOR_AMAZON_FSX_FOR_NETAPP_ONTAP",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "DataReadBytes,DataWriteBytes,DataReadOperations,DataWriteOperations,MetadataOperations,StorageUsed,LogicalDataStored,StorageCapacity,StorageUsed"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/FSx"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_FOR_ONTAP_REST_ENCRYPTED_USING_KMS_CMKS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_fs_date_at_rest_encrypted_with_kms_cmks",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "ONTAP"
+      },
+      "alias_name": {
+        "type": "string",
+        "optional": true,
+        "default": "alias/aws/fsx"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_ONTAP_FS_CLIENT_VPC_SECURITY_GROUP_RULES_EXISTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_fs_client_vpc_security_group_rules_exists",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "ONTAP"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_METRICS_ENABLED_FOR_AMAZON_FSX_FOR_OPENZFS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "DataReadBytes,DataWriteBytes,DataReadOperations,DataWriteOperations,UsedStorageCapacity,StorageCapacity,CompressionRatio,NfsBadCalls,FileSystemId,VolumeId,StorageTier,DataType"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/FSx"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_METRICS_THRESHOLD_ENABLED_FOR_AMAZON_FSX_FOR_OPENZFS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "DataReadBytes,DataWriteBytes,DataReadOperations,DataWriteOperations,UsedStorageCapacity,StorageCapacity,CompressionRatio,NfsBadCalls,FileSystemId,VolumeId,StorageTier,DataType"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/FSx"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_FOR_OPENZFS_REST_ENCRYPTED_USING_KMS_CMKS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_fs_date_at_rest_encrypted_with_kms_cmks",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "OPENZFS"
+      },
+      "alias_name": {
+        "type": "string",
+        "optional": true,
+        "default": "alias/aws/fsx"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_OPENZFS_FS_CLIENT_VPC_SECURITY_GROUP_RULES_EXISTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_fs_client_vpc_security_group_rules_exists",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "OPENZFS"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_METRICS_ENABLED_FOR_AMAZON_FSX_FOR_WINDOWS_FS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "DataReadBytes,DataWriteBytes,DataReadOperations,DataWriteOperations,MetadataOperations,FreeStorageCapacity"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/FSx"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_METRICS_THRESHOLD_ENABLED_FOR_AMAZON_FSX_FOR_WINDOWS_FS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "DataReadBytes,DataWriteBytes,DataReadOperations,DataWriteOperations,MetadataOperations,FreeStorageCapacity"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/FSx"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_FOR_WINDOWS_FS_DATE_AT_REST_ENCRYPTED_WITH_KMS_CMKS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_fs_date_at_rest_encrypted_with_kms_cmks",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "WINDOWS"
+      },
+      "alias_name": {
+        "type": "string",
+        "optional": true,
+        "default": "alias/aws/fsx"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_WINDOWS_FS_CLIENT_VPC_SECURITY_GROUP_RULES_EXISTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_fs_client_vpc_security_group_rules_exists",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "WINDOWS"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_TAGGING_EXISTS_FOR_WINDOWS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_tagging_exists_for_fs",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "WINDOWS"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_TAGGING_EXISTS_FOR_ONTAP",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_tagging_exists_for_fs",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "ONTAP"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_TAGGING_EXISTS_FOR_LUSTRE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_tagging_exists_for_fs",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "LUSTRE"
+      }
+    }
+  },
+  {
+    "name": "AWS_FSX_TAGGING_EXISTS_FOR_OPENZFS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_fsx_tagging_exists_for_fs",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "file_system": {
+        "type": "string",
+        "optional": true,
+        "default": "OPENZFS"
+      }
+    }
+  },
+  {
+    "name": "AWS_TRANSFER_SERVER_TAG_EXISTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_transfer_server_tag_exists",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_CW_METRICS_ENABLED_FOR_FSX_FOR_TRANSFER",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "BytesIn,BytesOut,FilesIn,FilesOut,OnUploadExecutionsStarted,OnUploadExecutionsSuccess,OnUploadExecutionsFailed"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/Transfer"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_METRICS_THRESHOLD_ENABLED_FOR_FSX_FOR_TRANSFER",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "BytesIn,BytesOut,FilesIn,FilesOut,OnUploadExecutionsStarted,OnUploadExecutionsSuccess,OnUploadExecutionsFailed"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/Transfer"
+      }
+    }
+  },
+  {
+    "name": "AWS_TRANSFER_FTPS_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_transfer_protocol_enabled",
+    "input_parameters": {
+      "protocol": {
+        "type": "string",
+        "optional": true,
+        "default": "FTPS"
+      }
+    }
+  },
+  {
+    "name": "AWS_TRANSFER_SFTP_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_transfer_protocol_enabled",
+    "input_parameters": {
+      "protocol": {
+        "type": "string",
+        "optional": true,
+        "default": "SFTP"
+      }
+    }
+  },
+  {
+    "name": "AWS_TRANSFER_SERVER_ENDPOINT_PRESENT_IN_VPC",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_transfer_server_endpoint_present_in_vpc",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_SG_SHARE_DATA_ENCRYPTED_BY_KMS_CMKS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_sg_file_share_key_check",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "key_to_check": {
+        "type": "string",
+        "optional": true,
+        "default": "KMSKey"
+      }
+    }
+  },
+  {
+    "name": "AWS_SG_VIRTUAL_TAPES_ENCRYPTED_BY_KMS_CMKS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_sg_virtual_tapes_encrypted_by_kms_cmks",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_SG_VOLUMES_ENCRYPTED_USING_KMS_CMKS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_sg_volumes_encrypted_using_kms_cmks",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_SG_TAGGING_EXISTS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_sg_file_share_key_check",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "key_to_check": {
+        "type": "string",
+        "optional": true,
+        "default": "Tags"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_FILE_GATEWAY_METRICS_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "AvailabilityNotifications,CacheDirectorySize,CacheFileSize,CacheFree,CacheHitPercent,CachePercentDirty,CachePercentUsed,CacheUsed,CloudBytesDownloaded,CloudBytesUploaded,FilesFailingUpload,FileShares,FileSystem-ERROR,HealthNotifications,IoWaitPercent,MemTotalBytes,MemUsedBytes,RootDiskFreeBytes,SmbV2Sessions,SmbV3Sessions,TotalCacheSize,UserCpuPercent"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/StorageGateway"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_FILE_GATEWAY_METRICS_THRESHOLD_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "AvailabilityNotifications,CacheDirectorySize,CacheFileSize,CacheFree,CacheHitPercent,CachePercentDirty,CachePercentUsed,CacheUsed,CloudBytesDownloaded,CloudBytesUploaded,FilesFailingUpload,FileShares,FileSystem-ERROR,HealthNotifications,IoWaitPercent,MemTotalBytes,MemUsedBytes,RootDiskFreeBytes,SmbV2Sessions,SmbV3Sessions,TotalCacheSize,UserCpuPercent"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/StorageGateway"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_IS_VOLUME_GATEWAY_METRICS_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "AvailabilityNotification,CacheHitPercent,CachePercentDirty,CachePercentUsed,CloudBytesDownloaded,CloudBytesUploaded,HealthNotification,IoWaitPercent,MemTotalBytes,MemoryUsage,ReadBytes,ReadTime,UserCpuPercent,WriteBytes,WriteTime,QueuedWrites"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/StorageGateway"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_IS_VOLUME_GATEWAY_METRICS_THRESHOLD_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_threshold_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "AvailabilityNotification,CacheHitPercent,CachePercentDirty,CachePercentUsed,CloudBytesDownloaded,CloudBytesUploaded,HealthNotification,IoWaitPercent,MemTotalBytes,MemoryUsage,ReadBytes,ReadTime,UserCpuPercent,WriteBytes,WriteTime,QueuedWrites"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/StorageGateway"
+      }
+    }
+  },
+  {
+    "name": "AWS_CW_CHECK_TAPE_GATEWAY_METRICS_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_enabled",
+    "code_reused_internal_ref": true,
+    "input_parameters": {
+      "list_metrics": {
+        "type": "string",
+        "optional": true,
+        "description": "comma separated MetricName or a single Metric Name",
+        "default": "CachePercentDirty,CloudTraffic,IoWaitPercent,HealthNotification,MemUsedBytes,MemTotalBytes,ReadBytes,UserCpuPercent,WriteBytes"
+      },
+      "name_space": {
+        "type": "string",
+        "optional": true,
+        "description": "namespace of the metric",
+        "default": "AWS/StorageGateway"
+      }
+    }
+  },
+  {
+    "name": "AZURE_COSMOS_CASSANDRA_KEYSPACE_TABLE_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_SQL_CONTAINERS_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COSMOS_GREMLIN_GRAPH_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureCosmosIdleResources_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_APP_SERVICE_PLAN_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_Azure_AppServicePlan_Idle",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "GCP_AUDIT_COMPUTE_PROJECT_WIDE_SSH_KEYS_ALLOWED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_compute_project_wide_ssh_keys_allowed",
+    "is_zones_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "OCI_RESOURCE_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_OCIIdleResources",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "OCI_RESOURCE_ORPHANED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_OCIOrphanedResources",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "GCP_AUDIT_COMPUTE_SECURE_BOOT_DISABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_compute_secure_boot_disabled",
+    "is_zones_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_AUDIT_COMPUTE_SERIAL_PORTS_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_compute_serial_ports_enabled",
+    "is_zones_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_AUDIT_DISK_ENCRYPTED_WITHOUT_CSEK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_disk_encrypted_without_csek",
+    "is_zones_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_AUDIT_FULL_API_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_full_api_access",
+    "is_zones_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_AUDIT_IP_FORWARDING_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_ip_forwarding_enabled",
+    "is_zones_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_AUDIT_OS_LOGIN_DISABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_os_login_disabled",
+    "is_zones_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_AUDIT_INSTANCE_USING_PUBLIC_IP_ADDRESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_instance_using_public_ip_address",
+    "is_zones_required": true,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_AUDIT_DEFAULT_VPC_NETWORK_USED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_default_vpc_network_used",
+    "is_zones_required": false,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "GCP_AUDIT_SQL_INSTANCE_AUTO_BACKUP_DISABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "check_auto_sql_instance_backup_disabled",
+    "is_zones_required": false,
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_EC2_CHECK_DISKS_ARE_ENCRYPTED_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_check_disks_are_encrypted",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_SECURITY_GROUP_UNRESTRICTED_CIFS_ACCESS_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_security_group_unrestricted_cifs_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_SECURITY_GROUP_UNRESTRICTED_DNS_ACCESS_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_security_group_unrestricted_dns_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_SECURITY_GROUP_UNRESTRICTED_TELNET_ACCESS_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_security_group_unrestricted_telnet_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_SECURITY_GROUP_UNRESTRICTED_FTP_ACCESS_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_security_group_unrestricted_ftp_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_SECURITY_GROUP_UNRESTRICTED_ICMP_ACCESS_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_security_group_unrestricted_icmp_access",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EFS_ENCRYPTION_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_efs_encryption",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_LAMBDA_FUNCTION_EXPOSED_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_lambda_function_exposed",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_ROUTE53_AUTO_RENEW_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_route53_auto_renew",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_ELB_ACCESS_LOGGING_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_elb_access_logging",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_LAMBDA_SERVICE_WITHOUT_DEADLETTER_CONFIGURATION_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_lambda_service_without_deadletter_configuration",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_INSTANCES_WITHOUT_TERMINATION_PROTECTION_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_instances_without_termination_protection",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_VOLUMES_NOT_HAVING_SNAPSHOT_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_volumes_not_having_snapshot",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_AMI_ENCRYPTION_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_ami_encryption",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_INSTANCE_USING_OLDER_GENERATION_INSTANCE_TYPE_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_instance_using_older_generation_instance_type",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_RDS_INSTANCE_USING_OLDER_GENERATION_INSTANCE_TYPE_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_rds_instance_using_older_generation_instance_type",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_RDS_MULTI_AVAILABILITY_ZONE_NOT_ENABLED_INSTANCE_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_rds_multi_availability_zone_not_enabled_instance",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EBS_VOLUME_IS_UNATTACHED_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ebs_volume_is_unattached",
+    "input_parameters": {}
+  },
+  {
+    "name": "OCI_RESOURCE_UNDERUTILISED",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_OCIResourceUU",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      },
+      "MetricName": {
+        "type": "string",
+        "optional": true
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "GCP_AUDIT_FOR_UNRESTRICTED_SERVICE_ACCESS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "code_ref": "gcp_audit_unrestricted_service_access",
+    "is_zones_required": false,
+    "input_parameters": {
+      "service": {
+        "type": "string"
+      }
+    }
+  },
+  {
+    "name": "AZURE_CACHE_REDIS_ENTERPRISE_TO_PREMIUM_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AZURE_CACHE_REDIS_ENTERPRISE_TO_PREMIUM_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_CACHE_REDIS_PREMIUM_TO_STANDARD_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AZURE_CACHE_REDIS_PREMIUM_TO_STANDARD_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_CACHE_REDIS_ENTERPRISE_FLASH_TO_ENTERPRISE_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AZURE_CACHE_REDIS_ENTERPRISE_FLASH_TO_ENTERPRISE_RECOMMEND",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ROUTE53_RESOLVER_ENDPOINTS_CONFIG",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWS_ROUTE53_RESOLVER_ENDPOINTS_CONFIG",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_TAG_LEVEL_BUDGET",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AZURE_TAG_LEVEL_BUDGET",
+    "input_parameters": {},
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_COST_OF_RESOURCES_WITHOUT_TAGS",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.AZURE_COST_OF_RESOURCES_WITHOUT_TAGS",
+    "input_parameters": {
+      "Mode": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AZURE_RESOURCES_WITHOUT_TAGS",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.Azure_RESOURCES_WITHOUT_TAGS",
+    "input_parameters": {
+      "Mode": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_S3_BUCKET_PUBLIC_WRITE_PROHIBITED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_s3_bucket_public_write_prohibited",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_S3_BUCKET_POLICY_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_s3_bucket_policy_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_CLOUDTRAIL_CONFIGURATION_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_cloudtrail_configuration_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_RDS_INSTANCE_PUBLIC_ACCESS_CHECK",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_rds_instance_public_access_check",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_DB_INSTANCE_BACKUP_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_db_instance_backup_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_GUARDDUTY_ENABLED_CENTRALIZED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_guardduty_enabled_centralized",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ROUTE53_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_route53_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_CONFIG_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_config_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_ROUTE_TABLE_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_route_table_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_UNAUTHORIZED_API_CALL",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_unauthorized_api_call",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_MANAGEMENT_AUTHENTICATION_FAILURES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_management_authentication_failures",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_IAM_POLICY_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_iam_policy_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_NETWORK_GATEWAYS_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_network_gateways_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_VPC_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_vpc_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_MANAGEMENT_CONSOLE_LOGIN_WITHOUT_MFA",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_management_console_login_without_mfa",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_NETWORK_ACCESS_CONTROL_LISTS_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_network_access_control_lists_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_ROOT_ACCOUNT_USAGE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_root_account_usage",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ALERT_CONFIGURATION_MONITORING_CUSTOMER_CMKS_STATE_CHANGES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_alert_configuration_monitoring_customer_cmks_state_changes",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_AWS_ORGANIZATIONS_CHANGES_ALARM",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_aws_organizations_changes_alarm",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_USE_AWS_BACKUP_SERVICE_IN_USE_FOR_AMAZON_RDS",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_audit_use_aws_backup_service_in_use_for_amazon_rds",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_ORGANIZATION_IN_USE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_audit_organization_in_use",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_VPC_FLOW_LOGS_ENABLED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_vpc_flow_logs_enabled",
+    "input_parameters": {}
+  }
+]
