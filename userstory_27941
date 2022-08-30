@@ -7,4 +7,5 @@ aws_kms_backing_key_rotation_enabled - AWS_CMK_Backing_Key_Rotation_Enabled_CS_P
 check_acm_cert_validity - AWS_Audit_ACM_Has_Invalid_Client_Certificate_CS_Policy (deployed to QA)
 aws_cloudtrail_log_file_validation_enabled - Function not found
 AWS_Audit_Check_IAM_Password_Policy(deployed to QA)
+AWS_Audit_ROOT_Account_MFA_Enabled_CS_Policy(deployed to QA)
 
