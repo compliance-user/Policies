@@ -1,7 +1,7 @@
 aws_rds_storage_encrypted - AWS_Audit_RDS_Storage_Encrypted_CS_Policy (deployed to QA)
 aws_elb_custom_security_policy_ssl_check - AWS_Audit_ELB_Custom_Security_Policy_SSL_Check_CS_Policy (something went wrong displayed during policy loading)
 aws_dynamodb_table_encryption_enabled - AWS_Audit_Dynamodb_Table_Encryption_Enabled_CS_Policy (deployed to QA)
-aws_ec2_managed_instance_applications_blacklisted - AWS_Audit_EC2_Managedinstance_Applications_Blacklisted_CS_Policy (policy json to be created, code moved to QA)
+aws_ec2_managed_instance_applications_blacklisted - AWS_Audit_EC2_Managedinstance_Applications_Blacklisted_CS_Policy (deployed to QA)
 aws_iam_policy_no_statements_with_admin_access - AWS_Audit_IAM_Policy_No_Statements_With_Admin_Access_CS_Policy (deployed to QA)
 aws_kms_backing_key_rotation_enabled - AWS_CMK_Backing_Key_Rotation_Enabled_CS_Policy (something went wrong displayed during policy loading)
 check_acm_cert_validity - AWS_Audit_ACM_Has_Invalid_Client_Certificate_CS_Policy (deployed to QA)
