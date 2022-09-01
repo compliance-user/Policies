@@ -12,4 +12,4 @@ AWS_Audit_ROOT_Account_MFA_Enabled_CS_Policy(deployed to QA)
 userstory_27941
 
 AWS_Audit_Volume_Snapshot_CS_Policy (deployed to QA)
-AWS_Audit_Check_Log_Monitoring_CS_Policy (something went wrong displayed during policy loading)
+AWS_Audit_Check_Log_Monitoring_CS_Policy
