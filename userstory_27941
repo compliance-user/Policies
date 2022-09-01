@@ -14,3 +14,8 @@ userstory_27941
 AWS_Audit_Volume_Snapshot_CS_Policy (deployed to QA)
 AWS_Audit_Check_Log_Monitoring_CS_Policy(deployed to QA)
 AWS_Audit_IAM_User_Exists_CS_Policy(deployed to QA)
+AWS_Audit_EC2_Instance_Using_IAM_Roles_CS_Policy(deployed to QA)
+AWS_Audit_IAM_User_Password_Expiry_30_Days_CS_Policy(deployed to QA)
+AWS_Audit_EC2_EBS_Encryption_by_Default_CS_Policy(deployed to QA)
+AWS_Audit_Dynamodb_PITR_Enabled_CS_Policy(deployed to QA)
+AWS_Audit_SecurityHub_Enabled_CS_Policy(deployed to QA)
