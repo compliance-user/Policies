@@ -1,6 +1,7 @@
 # This file is subject to the terms and conditions defined in the file
 # 'LICENSE.txt', which is part of this source code package.
 
+import base64
 import csv
 import json
 from io import StringIO
@@ -1903,48 +1904,48 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
-    def aws_ec2_managed_instance_applications_blacklisted(self, **kwargs):
+    def aws_ec2_instances_with_blacklisted_instance_types(self, **kwargs):
         output = list()
         evaluated_resources = 0
         try:
-            service_account_id = self.execution_args.get("service_account_id")
+            blocklisted_instance_type = list(
+                map(str.strip, self.execution_args['args']['blocklisted_instance_type'].split(',')))
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id') for region in self.execution_args['regions']]
-            operation_args_1 = {"Filters": [{'Name': 'instance-state-name', 'Values': ['running']}]}
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
             for region in regions:
+                operation_args = {"Filters": [
+                    {
+                        'Name': 'instance-state-name',
+                        'Values': [
+                            "running"
+                        ]
+                    },
+                    {
+                        'Name': 'instance-type',
+                        'Values': blocklisted_instance_type,
+                    },
+                ]}
                 try:
                     ec2_instance_response = run_aws_operation(
-                        credentials, 'ec2', 'describe_instances',
-                        operation_args=operation_args_1,
-                        region_name=region).get('Reservations')
+                        credentials,
+                        'ec2',
+                        'describe_instances',
+                        region_name=region,
+                        operation_args=operation_args,
+                        response_key='Reservations')
                 except Exception as e:
                     raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(str(e)))
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
                 for reservation in ec2_instance_response:
-                    for instance in reservation.get('Instances'):
+                    for instance in reservation['Instances']:
                         evaluated_resources += 1
-                        operation_args = {
-                            "InstanceId": instance.get('InstanceId'),
-                            "TypeName": 'AWS:Application'
-                        }
-                        try:
-                            ssm_response = run_aws_operation(
-                                credentials,
-                                'ssm',
-                                'list_inventory_entries',
-                                operation_args=operation_args,
-                                region_name=region)
-                        except Exception as e:
-                            raise Exception(
-                                'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                                    str(e)))
-                        if not ssm_response.get('Entries'):
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=instance.get('InstanceId'),
-                                    ResourceName=instance.get('InstanceId'),
-                                    ResourceType='Instances',
-                                    ServiceAccountName=self.execution_args['service_account_name']))
+                        output.append(
+                            OrderedDict(
+                                ResourceId=instance['InstanceId'],
+                                ResourceName=instance['InstanceId'],
+                                Resource='EC2'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -2743,6 +2744,73 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
+    def aws_s3_blacklisted_actions_prohibited(self):
+        try:
+            output = list()
+            evaluated_resources = 0
+            credentials = self.execution_args['auth_values']
+            s3_buckets = run_aws_operation(credentials, 's3', 'list_buckets')
+            operation_args = {}
+            owners_id = run_aws_operation(
+                credentials, 'sts', 'get_caller_identity').get('Account')
+            for bucket in s3_buckets['Buckets']:
+                operation_args.update(Bucket=bucket['Name'])
+                evaluated_resources += 1
+                try:
+                    bucket_policy = run_aws_operation(
+                        credentials, 's3', 'get_bucket_policy', operation_args)
+                    policy = bucket_policy['Policy']
+                    policy = json.loads(policy)
+                    for statement in policy['Statement']:
+                        aws_account_id = statement.get('Principal', {}).get('AWS').split(
+                            ':')[-2]
+                        if aws_account_id != owners_id:
+                            if statement['Effect'] == "Allow" and statement['Action'] == "s3:GetBucket*":
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=bucket['Name'],
+                                        ResourceName=bucket['Name'],
+                                        ResourceType="s3"))
+                            elif statement['Effect'] == "Allow" and statement['Action'] == "s3:DeleteObject":
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=bucket['Name'],
+                                        ResourceName=bucket['Name'],
+                                        ResourceType="s3"))
+                except Exception as e:
+                    if 'NoSuchBucketPolicy' in str(e):
+                        continue
+            return output, evaluated_resources
+        except Exception as e:
+            raise Exception(str(e))
+
+    def aws_s3_authenticated_users_write_control_access(self):
+        try:
+            output = list()
+            evaluated_resources = 0
+            credentials = self.execution_args.get('auth_values')
+            s3_buckets = run_aws_operation(credentials, 's3', 'list_buckets')
+            operation_args = {}
+            for s3_bucket in s3_buckets['Buckets']:
+                operation_args.update(Bucket=s3_bucket['Name'])
+                s3_bucket_acl = run_aws_operation(
+                    credentials, 's3', 'get_bucket_acl', operation_args)
+                for s3_bucket_acl_grant in s3_bucket_acl['Grants']:
+                    evaluated_resources += 1
+                    try:
+                        if s3_bucket_acl_grant['Permission'] == "WRITE" and s3_bucket_acl_grant[
+                            'Grantee']['URI'] == "http://acs.amazonaws.com/groups/global/AuthenticatedUsers":
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=s3_bucket['Name'],
+                                    ResourceName=s3_bucket['Name'],
+                                    ResourceType='S3'))
+                    except KeyError as e:
+                        pass
+            return output, evaluated_resources
+        except Exception as e:
+            raise Exception(str(e))
+
     def aws_iam_users_group_membership_check(self, **kwargs):
         output = list()
         evaluated_resources = 0
@@ -3097,8 +3165,10 @@ class ManagedCode(object):
                 if not shield_response.get('Subscription', {}).get('AutoRenew') == 'ENABLED':
                     output.append(
                         OrderedDict(
-                            ResourceId=shield_response.get('SubscriptionArn', self.execution_args['service_account_id']),
-                            ResourceName=shield_response.get('SubscriptionArn', self.execution_args['service_account_id']),
+                            ResourceId=shield_response.get('SubscriptionArn',
+                                                           self.execution_args['service_account_id']),
+                            ResourceName=shield_response.get('SubscriptionArn',
+                                                             self.execution_args['service_account_id']),
                             ResourceType='Shield'))
             return output, evaluated_resources
         except Exception as e:
@@ -3670,9 +3740,11 @@ class ManagedCode(object):
         output = list()
         evaluated_resources = 0
         operation_args = {}
+        domain_names = list()
         try:
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id') for region in self.execution_args['regions']]
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     es_domain_response = run_aws_operation(
@@ -3682,69 +3754,32 @@ class ManagedCode(object):
                         region_name=region)
                 except Exception as e:
                     raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(str(e)))
-                for domains in es_domain_response.get('DomainNames', []):
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
+                for domains in es_domain_response['DomainNames']:
                     evaluated_resources += 1
-                    operation_args.update(DomainName=domains['DomainName'])
-                    try:
-                        es_response = run_aws_operation(
-                            credentials,
-                            'es',
-                            'list_domain_names',
-                            region_name=region,
-                            operation_args=operation_args)
-                        if not es_response.get('DomainStatus', {}).get('Endpoint'):
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=domains['DomainName'],
-                                    ResourceName=domains['DomainName'],
-                                    ResourceType='ElasticSearch'))
+                    domain_names.append(domains['DomainName'])
 
-                    except Exception as e:
-                        if "DomainStatus" in str(e):
-                            continue
-                        raise e
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
-
-    def aws_elasticsearch_encrypted_at_rest(self, **kwargs):
-        output = list()
-        operation_args = {}
-        evaluated_resources = 0
-        try:
-            service_account_id = self.execution_args.get("service_account_id")
-            service_account_name = self.execution_args.get("service_account_name")
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id') for region in self.execution_args['regions']]
-            for region in regions:
+                operation_args.update(DomainNames=domain_names)
                 try:
                     es_response = run_aws_operation(
                         credentials,
                         'es',
-                        'list_domain_names',
-                        region_name=region)
+                        'describe_elasticsearch_domains',
+                        region_name=region,
+                        operation_args=operation_args)
+
+                    for domain in es_response['DomainStatusList']:
+                        if 'Endpoint' in domain and domain['Endpoint'] != 'null':
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=domain['DomainName'],
+                                    ResourceName=domain['DomainName'],
+                                    ResourceType='es'))
+
                 except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for domains in es_response['DomainNames']:
-                    operation_args.update(DomainNames=domains['DomainName'])
-
-                esresponse = run_aws_operation(
-                    credentials,
-                    'es',
-                    'describe_elasticsearch_domains',
-                    operation_args)
-                for domain_status in esresponse.get('DomainStatusList', []):
-                    evaluated_resources += 1
-                    if domain_status.get('EncryptionAtRestOptions', {}).get('Enabled') is False:
-                        output.append(
-                            OrderedDict(
-                                ResourceId=domain_status['DomainName'],
-                                ResourceName=domain_status['DomainName'],
-                                ResourceType='ElasticSearch'))
-
+                    if "DomainStatus" in str(e):
+                        continue
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -3778,7 +3813,8 @@ class ManagedCode(object):
                         operation_args=operation_args,
                         region_name=region)
                     for logging_info in elb_log_info.get('Attributes', []):
-                        if logging_info.get('Key') == 'deletion_protection.enabled' and logging_info.get('Value') == 'false':
+                        if logging_info.get('Key') == 'deletion_protection.enabled' and logging_info.get(
+                                'Value') == 'false':
                             output.append(
                                 OrderedDict(
                                     ResourceId=elb['LoadBalancerName'],
@@ -3797,7 +3833,8 @@ class ManagedCode(object):
             credentials = self.execution_args['auth_values']
             operation_args.update(AssignmentStatus='Any')
             mfa_response = run_aws_operation(
-                credentials, 'iam', 'list_virtual_mfa_devices', operation_args=operation_args, response_key='VirtualMFADevices')
+                credentials, 'iam', 'list_virtual_mfa_devices', operation_args=operation_args,
+                response_key='VirtualMFADevices')
             for info in mfa_response:
                 if info.get('SerialNumber'):
                     output.append(
@@ -3813,16 +3850,15 @@ class ManagedCode(object):
         output = list()
         evaluated_resources = 0
         try:
-            service_account_id = self.execution_args.get("service_account_id")
-            service_account_name = self.execution_args.get(
-                "service_account_name")
             credentials = self.execution_args['auth_values']
             try:
                 content = run_aws_operation(
                     credentials, 'iam', 'get_credential_report').get(
                     'Content', None).decode()
             except Exception as err:
-                if 'ReportNotPresent' in str(err):
+                if format(err.response['Error']['Code']) == 'ReportNotPresent':
+                    generate_updated_report = run_aws_operation(
+                        credentials, 'iam', 'generate_credential_report')
                     content = run_aws_operation(
                         credentials, 'iam', 'get_credential_report').get(
                         'Content', None).decode()
@@ -3845,9 +3881,7 @@ class ManagedCode(object):
                                 OrderedDict(
                                     ResourceId=data[0],
                                     ResourceName=data[0],
-                                    Resource='iam',
-                                    ServiceAccountId=service_account_id,
-                                    ServiceAccountName=service_account_name))
+                                    ResourceType='IAM'))
                     elif check_type == 'mfa_active':
                         evaluated_resources = 1
                         if data[0] == '<root_account>' and data[7] == 'false':
@@ -3855,9 +3889,7 @@ class ManagedCode(object):
                                 OrderedDict(
                                     ResourceId=data[0],
                                     ResourceName=data[0],
-                                    Resource='iam',
-                                    ServiceAccountId=service_account_id,
-                                    ServiceAccountName=service_account_name))
+                                    Resource='IAM'))
                     elif check_type == 'root_account':
                         evaluated_resources = 1
                         if data[0] == '<root_account>':
@@ -3960,8 +3992,16 @@ class ManagedCode(object):
                                     OrderedDict(
                                         ResourceId=data[0],
                                         ResourceName=data[0],
-                                        ResourceType='IAM'))
+                                        ResourceType='iam'))
+                            else:
+                                # Compliant
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=data[0],
+                                        ResourceName=data[0],
+                                        ResourceType='iam'))
                         except ValueError as e:
+                            # Compliant
                             output.append(
                                 OrderedDict(
                                     ResourceId=data[0],
@@ -3977,55 +4017,6 @@ class ManagedCode(object):
     def aws_root_account_restriction(self, **kwargs):
         output, evaluated_resources = self.iam_root_access('root_account')
         return output, evaluated_resources
-
-    def aws_ec2_instances_without_termination_protection(self, **kwargs):
-        output = list()
-        evaluated_resources = 1
-        operation_args = {}
-        try:
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id') for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    ec2_instance_response = run_aws_operation(
-                        credentials,
-                        'ec2',
-                        'describe_instances',
-                        region_name=region,
-                        response_key='Reservations')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(str(e)))
-                for reservation in ec2_instance_response:
-                    for instance in reservation.get('Instances', []):
-                        evaluated_resources += 1
-                        operation_args.update(
-                            InstanceId=instance['InstanceId'],
-                            Attribute='disableApiTermination')
-                        try:
-                            ec2_info = run_aws_operation(
-                                credentials,
-                                'ec2',
-                                'describe_instance_attribute',
-                                region_name=region,
-                                operation_args=operation_args)
-                            if not ec2_info.get('DisableApiTermination'):
-                                output.append(
-                                    OrderedDict(
-                                        ResourceId=instance['InstanceId'],
-                                        ResourceName=instance['InstanceId'],
-                                        ResourceType='EC2'))
-                        except Exception:
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=instance['InstanceId'],
-                                    ResourceName=instance['InstanceId'],
-                                    ResourceType='EC2'))
-
-            return output, evaluated_resources
-
-        except Exception as e:
-            raise Exception(str(e))
 
     def aws_ec2_ami_blacklisted(self, **kwargs):
         output = list()
@@ -4164,9 +4155,9 @@ class ManagedCode(object):
                 try:
                     operation_args.update(Filters=[
                         {'Name': "tag:%s" % (web_tier_tag_key),
-                            'Values': [
-                                web_tier_tag_value]}],
-                                Owners=['self', ])
+                         'Values': [
+                             web_tier_tag_value]}],
+                        Owners=['self', ])
                     ec2_response = run_aws_operation(
                         credentials,
                         'ec2',
@@ -4226,7 +4217,7 @@ class ManagedCode(object):
                                     OrderedDict(
                                         ResourceId=ebs_volume['VolumeId'],
                                         ResourceName=ebs_volume['VolumeId'],
-                                        ResourceTYPE='EBS',))
+                                        ResourceTYPE='EBS', ))
                                 break
 
             return output, evaluated_resources
@@ -4243,13 +4234,14 @@ class ManagedCode(object):
             for bucket in s3_buckets['Buckets']:
                 evaluated_resources += 1
                 if check_type == 'READ_ACP':
-                    operation_args.update(Bucket=bucket.get('Name',{}))
+                    operation_args.update(Bucket=bucket.get('Name', {}))
                     s3_bucket_acl = run_aws_operation(
                         credentials, 's3', 'get_bucket_acl', operation_args)
-                    for s3_bucket_acl_grant in s3_bucket_acl.get('Grants',{}):
+                    for s3_bucket_acl_grant in s3_bucket_acl.get('Grants', {}):
                         try:
                             if s3_bucket_acl_grant.get('Permission') == check_type and s3_bucket_acl_grant.get(
-                                'Grantee',{}).get('URI') == "http://acs.amazonaws.com/groups/global/AuthenticatedUsers":
+                                    'Grantee', {}).get(
+                                'URI') == "http://acs.amazonaws.com/groups/global/AuthenticatedUsers":
                                 output.append(
                                     OrderedDict(
                                         ResourceId=bucket['Name'],
@@ -4258,14 +4250,15 @@ class ManagedCode(object):
                         except Exception as e:
                             raise Exception(e.message)
                 elif check_type == 'WRITE_ACP':
-                    operation_args.update(Bucket=bucket.get('Name',{}))
+                    operation_args.update(Bucket=bucket.get('Name', {}))
                     evaluated_resources += 1
                     s3_bucket_acl = run_aws_operation(
                         credentials, 's3', 'get_bucket_acl', operation_args)
                     for s3_bucket_acl_grant in s3_bucket_acl['Grants']:
                         try:
                             if s3_bucket_acl_grant.get('Permission') == check_type and s3_bucket_acl_grant.get(
-                                    'Grantee', {}).get('URI') == "http://acs.amazonaws.com/groups/global/AuthenticatedUsers":
+                                    'Grantee', {}).get(
+                                'URI') == "http://acs.amazonaws.com/groups/global/AuthenticatedUsers":
                                 output.append(
                                     OrderedDict(
                                         ResourceId=bucket['Name'],
@@ -4336,9 +4329,9 @@ class ManagedCode(object):
                             OrderedDict(
                                 ResourceId=s3_bucket['Name'],
                                 ResourceName=s3_bucket['Name'],
-                                ResourceType='s3'))
+                                ResourceType='S3'))
                 except Exception as e:
-                    raise Exception(e.messagestr(e))
+                    raise Exception(str(e))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -4407,72 +4400,13 @@ class ManagedCode(object):
                         if statement.get(
                                 'Condition',
                                 {}).get(
-                                'Bool',
-                                {}).get('aws:MultiFactorAuthPresent'):
+                            'Bool',
+                            {}).get('aws:MultiFactorAuthPresent'):
                             output.append(
                                 OrderedDict(
                                     ResourceId=roles['RoleName'],
                                     ResourceName=roles['RoleName'],
                                     ResourceType='IAM'))
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
-
-    def aws_audit_ec2_publicly_shared_ami(self, **kwargs):
-        output = list()
-        operation_args = {}
-        ami_image_list = list()
-        try:
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    operation_args.update(Owners=['self', ])
-                    ec2_response = run_aws_operation(
-                        credentials,
-                        'ec2',
-                        'describe_images',
-                        region_name=region,
-                        operation_args=operation_args)
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for images in ec2_response['Images']:
-                    ami_image_list.append(images['ImageId'])
-                    if images['Public']:
-                        output.append(
-                            OrderedDict(
-                                ResourceId=images['ImageId'],
-                                ResourceName=images['ImageId'],
-                                ResourceType='EC2'))
-            return output, len(ami_image_list)
-        except Exception as e:
-            raise Exception(str(e))
-
-    def aws_s3_website_configuration_enabled(self):
-        try:
-            output = list()
-            evaluated_resources = 0
-            credentials = self.execution_args['auth_values']
-            s3_buckets = run_aws_operation(credentials, 's3', 'list_buckets')
-            operation_args = {}
-            for s3_bucket in s3_buckets['Buckets']:
-                operation_args.update(Bucket=s3_bucket['Name'])
-                s3_bucket_website = run_aws_operation(
-                    credentials, 's3', 'get_bucket_website', operation_args)
-                evaluated_resources += 1
-                try:
-                    if s3_bucket_website.get(
-                            'IndexDocument', {}).get('Suffix') == '':
-                        output.append(
-                            OrderedDict(
-                                ResourceId=s3_bucket['Name'],
-                                ResourceName=s3_bucket['Name'],
-                                ResourceType='s3'))
-                except Exception as e:
-                    raise Exception(str(e))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -4544,7 +4478,8 @@ class ManagedCode(object):
                             region_name=region,
                             response_key='Patches')
                         if ssm_response['State'] == 'INSTALLED_PENDING_REBOOT' or ssm_response[
-                                'State'] == 'INSTALLED_REJECTED' or ssm_response['State'] == 'MISSING' or ssm_response['State'] == 'FAILED':
+                            'State'] == 'INSTALLED_REJECTED' or ssm_response['State'] == 'MISSING' or ssm_response[
+                            'State'] == 'FAILED':
                             output.append(
                                 OrderedDict(
                                     ResourceId=instance['InstanceId'],
@@ -4616,14 +4551,14 @@ class ManagedCode(object):
                             'ssm',
                             'describe_instance_associations_status',
                             operation_args=operation_args,
-                            region_name=region,
-                            response_key='InstanceAssociationStatusInfos')
-                        if ssm_response['Status'] != 'COMPLIANT':
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=instance['InstanceId'],
-                                    ResourceName=instance['InstanceId'],
-                                    ResourceType='SSM'))
+                            region_name=region)
+                        for ssm_info in ssm_response['InstanceAssociationStatusInfos']:
+                            if ssm_info.get('Status') != 'COMPLIANT':
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=instance['InstanceId'],
+                                        ResourceName=instance['InstanceId'],
+                                        ResourceType='SSM'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -4673,39 +4608,6 @@ class ManagedCode(object):
                                 ResourceName=security_group['GroupId'],
                                 ResourceType="security_group"))
             return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
-
-    def aws_audit_ec2_publicly_shared_ami(self, **kwargs):
-        output = list()
-        operation_args = {}
-        ami_image_list = list()
-        try:
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    operation_args.update(Owners=['self', ])
-                    ec2_response = run_aws_operation(
-                        credentials,
-                        'ec2',
-                        'describe_images',
-                        region_name=region,
-                        operation_args=operation_args)
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for images in ec2_response['Images']:
-                    ami_image_list.append(images['ImageId'])
-                    if images['Public']:
-                        output.append(
-                            OrderedDict(
-                                ResourceId=images['ImageId'],
-                                ResourceName=images['ImageId'],
-                                ResourceType='ec2'))
-            return output, len(ami_image_list)
         except Exception as e:
             raise Exception(str(e))
 
@@ -4801,15 +4703,22 @@ class ManagedCode(object):
                         'get_policy',
                         region_name=region,
                         operation_args=operation_args)
-                    for policy_info in fms_policy_response['Policy']:
-                        policy_data = json.loads(
-                            policy_info['SecurityServicePolicyData']['ManagedServiceData'])
+                    policy_data = json.loads(
+                        fms_policy_response.get('Policy', {}).get('SecurityServicePolicyData', {}).get(
+                            'ManagedServiceData'))
+                    try:
                         if not policy_data['ruleGroups']:
                             output.append(
                                 OrderedDict(
                                     ResourceId=policy['PolicyId'],
                                     ResourceName=policy['PolicyId'],
                                     ResourceType='fms'))
+                    except KeyError as e:
+                        output.append(
+                            OrderedDict(
+                                ResourceId=policy['PolicyId'],
+                                ResourceName=policy['PolicyId'],
+                                ResourceType='WAF'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -4843,14 +4752,14 @@ class ManagedCode(object):
                         'get_policy',
                         region_name=region,
                         operation_args=operation_args)
-                    for policy_info in fms_policy_response['Policy']:
-                        if policy_info['SecurityServicePolicyData']['Type'] != 'WAF' or policy_info[
-                                'SecurityServicePolicyData']['Type'] != 'WAFV2':
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=policy['PolicyId'],
-                                    ResourceName=policy['PolicyId'],
-                                    ResourceType='fms'))
+                    if fms_policy_response.get('Policy', {}).get('SecurityServicePolicyData', {}).get(
+                            'Type') != 'WAF' or fms_policy_response.get('Policy', {}).get('SecurityServicePolicyData',
+                                                                                          {}).get('Type') != 'WAFV2':
+                        output.append(
+                            OrderedDict(
+                                ResourceId=policy['PolicyId'],
+                                ResourceName=policy['PolicyId'],
+                                ResourceType='WAF'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -4922,15 +4831,13 @@ class ManagedCode(object):
                         'get_policy',
                         region_name=region,
                         operation_args=operation_args)
-                    for policy_info in fms_policy_response['Policy']:
-                        if policy_info.get(
-                            'SecurityServicePolicyData',
-                                {}).get('Type') != 'SHIELD_ADVANCED':
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=policy['PolicyId'],
-                                    ResourceName=policy['PolicyId'],
-                                    ResourceType='fms'))
+                    if fms_policy_response.get('Policy', {}).get('SecurityServicePolicyData', {}).get(
+                            'Type') != 'SHIELD_ADVANCED':
+                        output.append(
+                            OrderedDict(
+                                ResourceId=policy['PolicyId'],
+                                ResourceName=policy['PolicyId'],
+                                ResourceType='FMS'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -5038,13 +4945,13 @@ class ManagedCode(object):
                     redshift_cluster = run_aws_operation(credentials, 'redshift', 'describe_clusters',
                                                          operation_args, region_name=region, response_key='Clusters')
                     for cluster in redshift_cluster:
-                        if cluster.get('PendingModifiedValues', {}).get('PubliclyAccessible'):
+                        if cluster.get('PubliclyAccessible'):
                             output.append(OrderedDict(ResourceId=cluster.get('ClusterIdentifier'),
                                                       ResourceName=cluster.get('ClusterIdentifier'),
                                                       Resource='Redshift'))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_audit_support_access(self):
         output = list()
@@ -5079,7 +4986,8 @@ class ManagedCode(object):
         operation_args = {}
         try:
             credentials = self.execution_args['auth_values']
-            regions = self.execution_args['regions']
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     operation_args.update(
@@ -5087,7 +4995,7 @@ class ManagedCode(object):
                             {
                                 'Name': 'status-code',
                                 'Values': [
-                                        'active',
+                                    'active',
                                 ]
                             },
                         ]
@@ -5138,7 +5046,7 @@ class ManagedCode(object):
                                             ResourceType='vpc'))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_vpn_tunnel_redundancy(
             self,
@@ -5157,7 +5065,7 @@ class ManagedCode(object):
                     operation_args.update(Filters=[
                         {'Name': '%s' % (filter_name),
                          'Values': ['%s' % (filter_values)]},
-                    ],)
+                    ], )
                     vpn_response = run_aws_operation(
                         credentials,
                         'ec2',
@@ -5237,14 +5145,6 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
-    def aws_rds_instance_deletion_protection(self, **kwargs):
-        try:
-            output, evaluated_resources = self.check_rds_config(
-                'DeletionProtection')
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
-
     def aws_rds_encrypted_with_kms_customer_master_keys(self):
         output = list()
         evaluated_resources = 0
@@ -5275,10 +5175,10 @@ class ManagedCode(object):
                     evaluated_resources += 1
                     db_instance_name = each_instance["DBInstanceIdentifier"]
                     if each_instance['StorageEncrypted']:
-                        temp_kmskey_id = each_instance.get('KmsKeyId',{})
+                        temp_kmskey_id = each_instance.get('KmsKeyId', {})
                         kmskey_id = str(temp_kmskey_id).split('/')[1]
                         for each_kms_alias in kms_alias:
-                            TargetKeyId = each_kms_alias.get('TargetKeyId',{})
+                            TargetKeyId = each_kms_alias.get('TargetKeyId', {})
                             if TargetKeyId == kmskey_id:
                                 output.append(OrderedDict(ResourceId=db_instance_name, ResourceName=db_instance_name,
                                                           Resource='rds'))
@@ -5373,73 +5273,6 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
-    def aws_vpc_peering_least_access(self, **kwargs):
-        output = list()
-        evaluated_resources = 0
-        operation_args = {}
-        try:
-            credentials = self.execution_args['auth_values']
-            regions = self.execution_args['regions']
-            for region in regions:
-                try:
-                    operation_args.update(
-                        Filters=[
-                            {
-                                'Name': 'status-code',
-                                'Values': [
-                                        'active',
-                                ]
-                            },
-                        ]
-                    )
-                    aws_response = run_aws_operation(
-                        credentials,
-                        'ec2',
-                        'describe_vpc_peering_connections',
-                        region_name=region,
-                        operation_args=operation_args,
-                        response_key='VpcPeeringConnections')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for info in aws_response:
-                    evaluated_resources += 1
-                    operation_args.update(
-                        Filters=[
-                            {
-                                'Name': 'route.vpc-peering-connection-id',
-                                'Values': [
-                                    info['VpcPeeringConnectionId'],
-                                ]},
-                        ])
-                    ec2_client = run_aws_operation(
-                        credentials,
-                        'ec2',
-                        'describe_route_tables',
-                        operation_args=operation_args,
-                        region_name=region)
-                    for more_info in ec2_client['RouteTables']:
-                        for route in more_info['Routes']:
-                            value = str(route['DestinationCidrBlock'])[-2:]
-                            try:
-                                if int(value) <= 28:
-                                    output.append(
-                                        OrderedDict(
-                                            ResourceId=info['VpcPeeringConnectionId'],
-                                            ResourceName=info['VpcPeeringConnectionId'],
-                                            ResourceType='vpc'))
-                            except Exception as e:
-                                if 'invalid literal' in str(e):
-                                    output.append(
-                                        OrderedDict(
-                                            ResourceId=info['VpcPeeringConnectionId'],
-                                            ResourceName=info['VpcPeeringConnectionId'],
-                                            ResourceType='vpc'))
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
-
     def aws_ec2_managedinstance_applications_blacklisted(self, **kwargs):
         output = list()
         evaluated_resources = 0
@@ -5493,67 +5326,13 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
-    def aws_attach_policy_iam_roles_app_tier_ec2_instances(self, **kwargs):
-        output = list()
-        evaluated_resources = 0
-        operation_args = {}
-        try:
-            app_tier_tag = self.execution_args["app_tier_tag"]
-            app_tier_tag_value = self.execution_args["app_tier_tag_value"]
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    ec2_instance_response = run_aws_operation(
-                        credentials,
-                        'ec2',
-                        'describe_instances',
-                        region_name=region,
-                        response_key='Reservations')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for ec2_reservations in ec2_instance_response:
-                    for ec2_instance_info in ec2_reservations['Instances']:
-                        evaluated_resources += 1
-                        operation_args.update(
-                            Filters=[
-                                {
-                                    'Name': 'resource-id',
-                                    'Values': [
-                                        ec2_instance_info['InstanceId'],
-                                    ]
-                                },
-                            ]
-                        )
-                        ec2_tags = run_aws_operation(
-                            credentials,
-                            'ec2',
-                            'describe_tags',
-                            operation_args=operation_args,
-                            region_name=region,
-                            response_key='Tags')
-
-                        for tag in ec2_tags:
-                            if tag['Key'] != app_tier_tag and tag['Value'] != app_tier_tag_value:
-                                output.append(
-                                    OrderedDict(
-                                        ResourceId=ec2_instance_info['InstanceId'],
-                                        ResourceName=ec2_instance_info['InstanceId'],
-                                        ResourceType="EC2"))
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
-
     def aws_iam_attach_policy_iam_roles_web_tier_ec2_instances(self, **kwargs):
         output = list()
         evaluated_resources = 0
         operation_args = {}
         try:
-            web_tier_tag = self.execution_args["web_tier_tag"]
-            web_tier_tag_value = self.execution_args["web_tier_tag_value"]
+            web_tier_tag = self.execution_args['args']["web_tier_tag_key"]
+            web_tier_tag_value = self.execution_args['args']["web_tier_tag_value"]
             credentials = self.execution_args['auth_values']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
@@ -5592,21 +5371,30 @@ class ManagedCode(object):
 
                         for tag in ec2_tags:
                             if tag['Key'] != web_tier_tag and tag['Value'] != web_tier_tag_value:
-                                output.append(
-                                    OrderedDict(
-                                        ResourceId=ec2_instance_info['InstanceId'],
-                                        ResourceName=ec2_instance_info['InstanceId'],
-                                        ResourceType="EC2"))
+                                try:
+                                    if not ec2_instance_info['IamInstanceProfile']:
+                                        output.append(
+                                            OrderedDict(
+                                                ResourceId=ec2_instance_info['InstanceId'],
+                                                ResourceName=ec2_instance_info['InstanceId'],
+                                                ResourceType="EC2"))
+                                except Exception as e:
+                                    if 'IamInstanceProfile' in str(e):
+                                        output.append(
+                                            OrderedDict(
+                                                ResourceId=ec2_instance_info['InstanceId'],
+                                                ResourceName=ec2_instance_info['InstanceId'],
+                                                ResourceType="EC2"))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_vpc_peer_connections_acc_outside_organization(self, **kwargs):
         output = list()
         evaluated_resources = 0
         operation_args = {}
         try:
-            valid_account_list = self.execution_args['valid_account_list']
+            valid_account_list = list(map(str.strip, self.execution_args['args']['valid_account_list'].split(',')))
             credentials = self.execution_args['auth_values']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
@@ -5617,7 +5405,7 @@ class ManagedCode(object):
                             {
                                 'Name': 'status-code',
                                 'Values': [
-                                        'active',
+                                    'active',
                                 ]
                             },
                         ]
@@ -5638,8 +5426,8 @@ class ManagedCode(object):
                     if info.get(
                             'RequesterVpcInfo',
                             {}).get('OwnerId') not in valid_account_list and info.get(
-                            'AccepterVpcInfo',
-                            {}).get('OwnerId') not in valid_account_list:
+                        'AccepterVpcInfo',
+                        {}).get('OwnerId') not in valid_account_list:
                         output.append(
                             OrderedDict(
                                 ResourceId=info['VpcPeeringConnectionId'],
@@ -5647,14 +5435,13 @@ class ManagedCode(object):
                                 ResourceType='ec2'))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_elasticache_redis_cluster_automatic_backup(self, **kwargs):
         output = list()
         evaluated_resources = 0
         try:
             credentials = self.execution_args.get('auth_values')
-            snapshot_retention_period = self.execution_args.get('snapshot_retention_period')
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
             for region in regions:
@@ -5669,17 +5456,17 @@ class ManagedCode(object):
                     raise Exception(
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
-            for replication in elasticache_response:
-                evaluated_resources += 1
-                if replication['SnapshotRetentionLimit'] < snapshot_retention_period:
-                    output.append(
-                        OrderedDict(
-                            ResourceId=replication['ReplicationGroupId'],
-                            ResourceName=replication['ReplicationGroupId'],
-                            ResourceType='elasticache'))
+                for replication in elasticache_response:
+                    evaluated_resources += 1
+                    if replication['SnapshotRetentionLimit'] == 0:
+                        output.append(
+                            OrderedDict(
+                                ResourceId=replication['ReplicationGroupId'],
+                                ResourceName=replication['ReplicationGroupId'],
+                                ResourceType='elasticache'))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_rds_dms_replication_not_public(self, **kwargs):
         output = list()
@@ -5768,7 +5555,8 @@ class ManagedCode(object):
                                             response_key='LoadBalancerDescriptions')
                                         for load_description in response:
                                             if load_description['HealthCheck']:
-                                                if 'TCP' not in load_description['HealthCheck']['Target'] or 'SSL' not in \
+                                                if 'TCP' not in load_description['HealthCheck'][
+                                                    'Target'] or 'SSL' not in \
                                                         load_description['HealthCheck']['Target']:
                                                     output.append(
                                                         OrderedDict(
@@ -5797,17 +5585,19 @@ class ManagedCode(object):
                                                 operation_args.update(
                                                     LoadBalancerName=_elb['LoadBalancerName'])
                                                 balance_response = run_aws_operation(
-                                                    credentials, 'elb', 'describe_load_balancer_policies', operation_args, region_name=region)
+                                                    credentials, 'elb', 'describe_load_balancer_policies',
+                                                    operation_args, region_name=region)
                                                 for balancer in balance_response['PolicyDescriptions']:
                                                     operation_args.update(
                                                         PolicyNames=[balancer['PolicyName']])
                                                     policy_response = run_aws_operation(
-                                                        credentials, 'elb', 'describe_load_balancer_policies', operation_args, region_name=region)
+                                                        credentials, 'elb', 'describe_load_balancer_policies',
+                                                        operation_args, region_name=region)
                                                     for policy in policy_response['PolicyDescriptions']:
                                                         if any(desc['AttributeName'] == 'Reference-Security-Policy' for
                                                                desc in
                                                                policy['PolicyAttributeDescriptions']) and balancer[
-                                                                'PolicyName'] in POLICY_NAME_LIST:
+                                                            'PolicyName'] in POLICY_NAME_LIST:
                                                             # Non-Compliant
                                                             output.append(
                                                                 OrderedDict(
@@ -5820,12 +5610,13 @@ class ManagedCode(object):
                                                 operation_args.update(LoadBalancerNames=[
                                                     _elb['LoadBalancerName']])
                                                 response = run_aws_operation(
-                                                    credentials, 'elb', 'describe_load_balancers', operation_args, region_name=region)
+                                                    credentials, 'elb', 'describe_load_balancers', operation_args,
+                                                    region_name=region)
                                                 if response['LoadBalancerDescriptions']:
                                                     for desc in response['LoadBalancerDescriptions']:
                                                         for listener_desc in desc['ListenerDescriptions']:
                                                             if listener_desc['Listener']['Protocol'] in [
-                                                                    'HTTPS', 'SSL']:
+                                                                'HTTPS', 'SSL']:
                                                                 # Non-Compliant
                                                                 output.append(
                                                                     OrderedDict(
@@ -5838,12 +5629,14 @@ class ManagedCode(object):
                                                 operation_args.update(
                                                     LoadBalancerName=_elb['LoadBalancerName'])
                                                 balance_response = run_aws_operation(
-                                                    credentials, 'elb', 'describe_load_balancer_policies', operation_args, region_name=region)
+                                                    credentials, 'elb', 'describe_load_balancer_policies',
+                                                    operation_args, region_name=region)
                                                 for balancer in balance_response['PolicyDescriptions']:
                                                     operation_args.update(
                                                         PolicyNames=[balancer['PolicyName']])
                                                     policy_response = run_aws_operation(
-                                                        credentials, 'elb', 'describe_load_balancer_policies', operation_args, region_name=region)
+                                                        credentials, 'elb', 'describe_load_balancer_policies',
+                                                        operation_args, region_name=region)
                                                     for policy in policy_response['PolicyDescriptions']:
                                                         if any(desc['AttributeName'] == 'Reference-Security-Policy' for
                                                                desc in policy['PolicyAttributeDescriptions']) and \
@@ -5856,7 +5649,12 @@ class ManagedCode(object):
                                                                     ResourceType='ELB'))
                             except Exception as e:
                                 raise Exception(str(e))
-            return output, evaluated_resources
+            if output:
+                policy_output = {v['ResourceId']: v for v in output}.values()
+                output = policy_output
+                return output, evaluated_resources
+            else:
+                return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
 
@@ -5885,73 +5683,82 @@ class ManagedCode(object):
         evaluated_resources = 0
         operation_args = {}
         try:
-            credentials = self.execution_args['auth_values']
-            cloudtrail_reponse = run_aws_operation(
-                credentials, 'cloudtrail', 'describe_trails')
-            for trail in cloudtrail_reponse['trailList']:
-                evaluated_resources += 1
-                operation_args.update(Bucket=trail['S3BucketName'])
-                s3_bucket_MFA_delete_enabled = run_aws_operation(
-                    credentials, 's3', 'get_bucket_versioning', operation_args=operation_args)
-                try:
-                    if s3_bucket_MFA_delete_enabled['MFADelete'] != 'Enabled':
-                        output.append(
-                            OrderedDict(
-                                ResourceId=trail['S3BucketName'],
-                                ResourceName=trail['S3BucketName'],
-                                ResourceType='s3'))
-                except Exception as e:
-                    if 'MFADelete' in str(e):
-                        output.append(
-                            OrderedDict(
-                                ResourceId=trail['S3BucketName'],
-                                ResourceName=trail['S3BucketName'],
-                                ResourceType='s3'))
-            return output, evaluated_resources
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
+            for region in regions:
+                credentials = self.execution_args['auth_values']
+                cloudtrail_reponse = run_aws_operation(
+                    credentials,
+                    'cloudtrail',
+                    'describe_trails',
+                    region_name=region)
+                for trail in cloudtrail_reponse['trailList']:
+                    evaluated_resources += 1
+                    operation_args.update(Bucket=trail['S3BucketName'])
+                    s3_bucket_MFA_delete_enabled = run_aws_operation(
+                        credentials, 's3', 'get_bucket_versioning', operation_args=operation_args)
+                    try:
+                        if s3_bucket_MFA_delete_enabled['MFADelete'] != 'Enabled':
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=trail['S3BucketName'],
+                                    ResourceName=trail['S3BucketName'],
+                                    ResourceType='S3'))
+                    except Exception as e:
+                        if 'MFADelete' in str(e):
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=trail['S3BucketName'],
+                                    ResourceName=trail['S3BucketName'],
+                                    ResourceType='S3'))
+                return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_cloudtrail_bucket_publicly_accessible(self, **kwargs):
         output = list()
         evaluated_resources = 0
         operation_args = {}
         permission_checking_list = ['READ', 'WRITE', 'READ_ACP', 'WRITE_ACP']
+        credentials = self.execution_args['auth_values']
         try:
-            credentials = self.execution_args['auth_values']
-            cloudtrail_reponse = run_aws_operation(
-                credentials, 'cloudtrail', 'describe_trails')
-            for trail in cloudtrail_reponse['trailList']:
-                evaluated_resources += 1
-                operation_args.update(Bucket=trail['S3BucketName'])
-                s3_bucket_acl = run_aws_operation(
-                    credentials, 's3', 'get_bucket_acl', operation_args=operation_args)
-                for s3_bucket_acl_grant in s3_bucket_acl['Grants']:
-                    try:
-                        if s3_bucket_acl_grant['Permission'] in permission_checking_list and s3_bucket_acl_grant[
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
+            for region in regions:
+                cloudtrail_reponse = run_aws_operation(
+                    credentials, 'cloudtrail', 'describe_trails', region_name=region)
+                for trail in cloudtrail_reponse['trailList']:
+                    evaluated_resources += 1
+                    operation_args.update(Bucket=trail['S3BucketName'])
+                    s3_bucket_acl = run_aws_operation(
+                        credentials, 's3', 'get_bucket_acl', operation_args=operation_args)
+                    for s3_bucket_acl_grant in s3_bucket_acl['Grants']:
+                        try:
+                            if s3_bucket_acl_grant['Permission'] in permission_checking_list and s3_bucket_acl_grant[
                                 'Grantee']['URI'] == "http://acs.amazonaws.com/groups/global/AuthenticatedUsers":
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=trail['Name'],
-                                    ResourceName=trail['Name'],
-                                    ResourceType='cloudtrail'))
-                        bucket_policy = run_aws_operation(
-                            credentials, 's3', 'get_bucket_policy', operation_args=operation_args)
-                        policy = bucket_policy['Policy']
-                        policy = json.loads(policy)
-                        for statement in policy['Statement']:
-                            if statement['Effect'] == "Allow" and statement['Principal'].values(
-                            ) == "*":
                                 output.append(
                                     OrderedDict(
                                         ResourceId=trail['Name'],
                                         ResourceName=trail['Name'],
                                         ResourceType='cloudtrail'))
-                    except Exception as e:
-                        if 'URI' in str(e):
-                            continue
+                            bucket_policy = run_aws_operation(
+                                credentials, 's3', 'get_bucket_policy', operation_args=operation_args)
+                            policy = bucket_policy['Policy']
+                            policy = json.loads(policy)
+                            for statement in policy['Statement']:
+                                if statement['Effect'] == "Allow" and statement['Principal'].values(
+                                ) == "*":
+                                    output.append(
+                                        OrderedDict(
+                                            ResourceId=trail['Name'],
+                                            ResourceName=trail['Name'],
+                                            ResourceType='cloudtrail'))
+                        except Exception as e:
+                            if 'URI' in str(e):
+                                continue
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_s3_dns_compliant(self):
         try:
@@ -6011,7 +5818,7 @@ class ManagedCode(object):
         evaluated_resources = 0
         try:
             credentials = self.execution_args['auth_values']
-            valid_tags = self.execution_args['valid_tags']
+            valid_tags = self.execution_args['args']['valid_tags']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
             for region in regions:
@@ -6039,7 +5846,7 @@ class ManagedCode(object):
                                             ResourceType="EC2"))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_elb_connection_draining_enabled(self, **kwargs):
         try:
@@ -6173,8 +5980,12 @@ class ManagedCode(object):
                                     ResourceId=elb['LoadBalancerName'],
                                     ResourceName=elb['LoadBalancerName'],
                                     ResourceType='elb'))
-
-            return output, evaluated_resources
+            if output:
+                policy_output = {v['ResourceId']: v for v in output}.values()
+                output = policy_output
+                return output, evaluated_resources
+            else:
+                return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
 
@@ -6227,13 +6038,13 @@ class ManagedCode(object):
                         region_name=region)
 
                     if not (
-                        elb_descriptions.get(
-                            'LoadBalancerAttributes',
-                            {}).get(
-                            'CrossZoneLoadBalancing',
-                            {}).get('Enabled') and len(
-                            elb['AvailabilityZones']) > len(
-                            elb['Instances'])):
+                            elb_descriptions.get(
+                                'LoadBalancerAttributes',
+                                {}).get(
+                                'CrossZoneLoadBalancing',
+                                {}).get('Enabled') and len(
+                        elb['AvailabilityZones']) > len(
+                        elb['Instances'])):
                         output.append(
                             OrderedDict(
                                 ResourceId=elb['LoadBalancerName'],
@@ -6633,7 +6444,8 @@ class ManagedCode(object):
                                     operation_args=operation_args2)
                                 print(iam_inline_policies['PolicyDocument'])
                                 for policy in iam_inline_policies['PolicyDocument']['Statement']:
-                                    if policy['Effect'] == "Allow" and policy['Action'] == "*" and policy['Resource'] == "*":
+                                    if policy['Effect'] == "Allow" and policy['Action'] == "*" and policy[
+                                        'Resource'] == "*":
                                         output.append(
                                             OrderedDict(
                                                 ResourceId=policies['Arn'],
@@ -6650,7 +6462,7 @@ class ManagedCode(object):
         output = list()
         evaluated_resources = 0
         operation_args = {}
-        version_list = self.execution_args['version_list']
+        version_list = list(map(str.strip, self.execution_args['args']['version_list'].split(',')))
         credentials = self.execution_args['auth_values']
         operation_args.update(FunctionVersion='ALL')
         try:
@@ -6691,7 +6503,7 @@ class ManagedCode(object):
                             continue
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_lambda_tracing_enabled(self, **kwargs):
         output = list()
@@ -6715,7 +6527,7 @@ class ManagedCode(object):
                 for function in lambda_response:
                     evaluated_resources += 1
                     if function.get(
-                        'TracingConfig',
+                            'TracingConfig',
                             {}).get('Mode') == "Active":
                         output.append(
                             OrderedDict(
@@ -6756,11 +6568,12 @@ class ManagedCode(object):
 
     def check_ebs_operation(self, check_type):
         try:
-            credentials = self.execution_args['auth_values']
+            credentials = self.execution_args.get('auth_values',{})
             output = list()
             operation_args = {}
             evaluated_resources = 0
-            regions = [region.get('id') for region in self.execution_args['regions']]
+            regions = [region.get('id')
+                       for region in self.execution_args.get('regions',{})]
             for region in regions:
                 if check_type == 'Snapshot_encrypted':
                     try:
@@ -6773,41 +6586,48 @@ class ManagedCode(object):
                                 str(e)))
                     for snapshot in account_snapshot_list:
                         evaluated_resources += 1
-                        if not snapshot.get('Encrypted'):
-                            # Non-Compliant
-                            output.append(OrderedDict(ResourceId=snapshot['SnapshotId'],
-                                                      ResourceName=snapshot['SnapshotId'],
-                                                      ResourceType="EC2"))
-
+                        if not snapshot.get('Encrypted',{}):
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=snapshot['SnapshotId'],
+                                    ResourceName=snapshot['SnapshotId'],
+                                    ResourceType="EC2"))
                 elif check_type == 'Snapshot_Accessible_All':
                     try:
-                        account_snapshot_list = run_aws_operation(credentials, 'ec2', 'describe_snapshots',
-                                                                  region_name=region, response_key='Snapshots')
+                        account_snapshot_list = run_aws_operation(
+                            credentials,
+                            'ec2',
+                            'describe_snapshots',
+                            region_name=region,
+                            response_key='Snapshots')
                     except Exception as e:
                         raise Exception(
                             'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                                 str(e)))
-                    snapshot_id_list = self.generate_snapshot_id_list(account_snapshot_list)
+                    snapshot_id_list = self.generate_snapshot_id_list(
+                        account_snapshot_list)
                     for snapshot in snapshot_id_list:
-                        operation_args.update(Attribute='createVolumePermission', SnapshotId=snapshot)
+                        operation_args.update(
+                            Attribute='createVolumePermission', SnapshotId=snapshot)
                         evaluated_resources += 1
                         try:
-                            snapshot_response = run_aws_operation(credentials, 'ec2', 'describe_snapshot_attribute',
-                                                                  operation_args=operation_args,
-                                                                  region_name=region)
+                            snapshot_response = run_aws_operation(
+                                credentials, 'ec2', 'describe_snapshot_attribute', operation_args, region_name=region)
                         except Exception as e:
-                            if 'InvalidSnapshot.NotFound' in str(e):
-                                continue
-                            else:
-                                raise Exception(str(e))
-                        if snapshot_response.get('CreateVolumePermissions'):
-                            for attr in snapshot_response.get('CreateVolumePermissions', []):
-                                if attr.get('Group') == 'all':
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=snapshot,
+                                    ResourceName=snapshot,
+                                    ResourceType='ec2'))
+
+                        if snapshot_response.get('CreateVolumePermissions',{}):
+                            for attr in snapshot_response.get('CreateVolumePermissions',{}):
+                                if attr.get('Group',{}) == 'all':
                                     output.append(
                                         OrderedDict(
                                             ResourceId=snapshot,
                                             ResourceName=snapshot,
-                                            ResourceType='EC2'))
+                                            ResourceType='ec2'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -6879,7 +6699,7 @@ class ManagedCode(object):
                 for sg in rds_instance_info:
                     evaluated_resources += 1
                     for item in sg.get('IPRanges', []):
-                        if item.get('Status')  == 'authorized' and item.get('CIDRIP') == '0.0.0.0/0':
+                        if item.get('Status') == 'authorized' and item.get('CIDRIP') == '0.0.0.0/0':
                             output.append(
                                 OrderedDict(
                                     ResourceId=sg['DBSecurityGroupArn'],
@@ -6893,25 +6713,24 @@ class ManagedCode(object):
         output, evaluated_resources = self.iam_root_access('iam_initial_access_key')
         return output, evaluated_resources
 
-    def aws_ebs_app_tier_encrpted(self, **kwargs):
+    def common_ebs_encrpted(self, input_key, input_value):
         output = list()
         evaluated_resources = 0
         operation_args = {}
         try:
-            app_tier_tag = self.execution_args['args'].get('app_tier_tag_key')
-            app_tier_tag_value = self.execution_args['args'].get('app_tier_tag_value')
+            tag_key = input_key
+            tag_value = input_value
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
+            regions = [region.get('id') for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     operation_args.update(Filters=[
-                        {'Name': "tag:%s" % (app_tier_tag),
+                        {'Name': "tag:%s" % (tag_key),
                          'Values': [
-                            app_tier_tag_value,
-                        ]
-                        },
-                    ],)
+                             tag_value,
+                         ]
+                         },
+                    ], )
                     ebs_volumes_response = run_aws_operation(
                         credentials,
                         'ec2',
@@ -6925,16 +6744,21 @@ class ManagedCode(object):
                             str(e)))
                 for ebs_volume in ebs_volumes_response:
                     evaluated_resources += 1
-                    if not ebs_volume.get('Encrypted'):
+                    if not ebs_volume['Encrypted']:
                         output.append(
                             OrderedDict(
                                 ResourceId=ebs_volume['VolumeId'],
                                 ResourceName=ebs_volume['VolumeId'],
-                                ResourceType='EBS'))
-
+                                ResourceType='ebs'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
+
+    def aws_ebs_app_tier_encrpted(self, **kwargs):
+        app_tier_tag_key = self.execution_args['args']["app_tier_tag_key"]
+        app_tier_tag_value = self.execution_args['args']["app_tier_tag_value"]
+        output, evaluated_resources = self.common_ebs_encrpted(app_tier_tag_key, app_tier_tag_value)
+        return output, evaluated_resources
 
     def aws_key_app_tier_kms_customer_master_key_in_use(self, **kwargs):
         output = list()
@@ -6942,9 +6766,10 @@ class ManagedCode(object):
         operation_args = {}
         try:
             credentials = self.execution_args['auth_values']
-            app_tier_tag = self.execution_args['args'].get('app_tier_tag_key')
-            app_tier_tag_value = self.execution_args['args'].get('app_tier_tag_value')
-            regions = [region.get('id') for region in self.execution_args['regions']]
+            app_tier_tag = self.execution_args['args']["app_tier_tag"]
+            app_tier_tag_value = self.execution_args['args']["app_tier_tag_value"]
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     kms_response = run_aws_operation(
@@ -6961,6 +6786,7 @@ class ManagedCode(object):
                     operation_args.update(KeyId=keys['KeyId'])
                     evaluated_resources += 1
                     try:
+                        app_tier_tag_flag = False
                         key_response = run_aws_operation(
                             credentials,
                             'kms',
@@ -6975,14 +6801,16 @@ class ManagedCode(object):
                                     ResourceType='KMS'))
                         else:
                             for tag in key_response['Tags']:
-                                if tag['Key'] != app_tier_tag and tag['Value'] != app_tier_tag_value:
-                                    output.append(
-                                        OrderedDict(
-                                            ResourceId=keys['KeyId'],
-                                            ResourceName=keys['KeyId'],
-                                            ResourceType='KMS'))
+                                if tag['Key'] == app_tier_tag and tag['Value'] == app_tier_tag_value:
+                                    app_tier_tag_flag = True
+                            if not app_tier_tag_flag:
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=keys['KeyId'],
+                                        ResourceName=keys['KeyId'],
+                                        ResourceType='KMS'))
                     except Exception as e:
-                        raise e
+                        pass
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -6991,7 +6819,7 @@ class ManagedCode(object):
         output = list()
         evaluated_resources = 0
         try:
-            approved_users = self.execution_args['args'].get('approved_users')
+            approved_users = list(map(str.strip, self.execution_args['args']['approved_users'].split(',')))
             credentials = self.execution_args['auth_values']
             iam_response = run_aws_operation(
                 credentials, 'iam', 'list_users', response_key='Users')
@@ -7002,8 +6830,7 @@ class ManagedCode(object):
                         OrderedDict(
                             ResourceId=users['UserName'],
                             ResourceName=users['UserName'],
-                            ResourceType='IAM'))
-
+                            ResourceType='IAM_Users'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -7023,7 +6850,7 @@ class ManagedCode(object):
                 operation_args.update(RoleName=roles['RoleName'])
                 evaluated_resources += 1
                 iam_role_response = run_aws_operation(
-                credentials, 'iam', 'get_role',operation_args=operation_args)
+                    credentials, 'iam', 'get_role', operation_args=operation_args)
                 for statement in iam_role_response.get('Role', {}).get('AssumeRolePolicyDocument', {}).get(
                         'Statement', []):
                     if 'AWS' in statement.get('Principal', ''):
@@ -7039,54 +6866,10 @@ class ManagedCode(object):
             raise Exception(str(e))
 
     def aws_kms_cmk_database_tier_inuse(self, **kwargs):
-        output = list()
-        evaluated_resources = 0
-        operation_args = {}
-        try:
-            data_tier_tag_key = self.execution_args['args'].get('data_tier_tag')
-            data_tier_tag_value = self.execution_args['args'].get('data_tier_tag_value')
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            for region in regions:
-                database_tier_key = False
-                try:
-                    kms_response = run_aws_operation(
-                        credentials,
-                        'kms',
-                        'list_keys',
-                        region_name=region,
-                        response_key='Keys')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for key in kms_response:
-                    operation_args.update(KeyId=key['KeyId'])
-                    evaluated_resources += 1
-                    try:
-                        key_resource_tags = run_aws_operation(
-                            credentials,
-                            'kms',
-                            'list_resource_tags',
-                            operation_args=operation_args)
-                        if key_resource_tags.get('Tags'):
-                            for tag in key_resource_tags.get('Tags', []):
-                                if tag.get('TagKey') == data_tier_tag_key and tag.get(
-                                        'TagValue') == data_tier_tag_value:
-                                    database_tier_key = True
-                                    break
-                    except Exception as e:
-                        raise Exception(str(e))
-                if not database_tier_key:
-                    output.append(
-                        OrderedDict(
-                            ResourceId=region,
-                            ResourceName=region,
-                            ResourceType='KMS'))
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
+        data_tier_tag_key = self.execution_args["args"]["data_tier_tag_key"]
+        data_tier_tag_value = self.execution_args["args"]["data_tier_tag_value"]
+        output, evaluated_resources = self.common_kms_customer_master_key_in_use(data_tier_tag_key, data_tier_tag_value)
+        return output, evaluated_resources
 
     def aws_iam_group_with_inline_policies(self, **kwargs):
         output = list()
@@ -7120,19 +6903,30 @@ class ManagedCode(object):
                        'iam:CreatePolicy', 'iam:CreatePolicyVersion',
                        'iam:CreateRole', 'iam:CreateUser', 'iam:DeleteGroup',
                        'iam:DeletePolicy', 'iam:DeletePolicyVersion', 'iam:DeleteRole',
-                       'iam:DeleteRolePolicy', 'iam:DeleteUser', 'iam:PutRolePolicy', 'iam:GetPolicy', 'iam:GetPolicyVersion', 'iam:GetRole',
-                       'iam:GetRolePolicy', 'iam:GetUser', 'iam:GetUserPolicy', 'iam:ListEntitiesForPolicy', 'iam:ListGroupPolicies', 'iam:ListGroups',
-                       'iam:ListGroupsForUser', 'iam:ListPolicies', 'iam:ListPoliciesGrantingServiceAccess', 'iam:ListPolicyVersions', 'iam:ListRolePolicies',
-                       'iam:ListAttachedGroupPolicies', 'iam:ListAttachedRolePolicies', 'iam:ListAttachedUserPolicies', 'iam:ListRoles', 'iam:ListUsers',
-                       'iam:AddUserToGroup', 'iam:AttachGroupPolicy', 'iam:DeleteGroupPolicy', 'iam:DeleteUserPolicy', 'iam:DetachGroupPolicy',
-                       'iam:DetachRolePolicy', 'iam:DetachUserPolicy', 'iam:PutGroupPolicy', 'iam:PutUserPolicy', 'iam:RemoveUserFromGroup', 'iam:UpdateGroup',
+                       'iam:DeleteRolePolicy', 'iam:DeleteUser', 'iam:PutRolePolicy', 'iam:GetPolicy',
+                       'iam:GetPolicyVersion', 'iam:GetRole',
+                       'iam:GetRolePolicy', 'iam:GetUser', 'iam:GetUserPolicy', 'iam:ListEntitiesForPolicy',
+                       'iam:ListGroupPolicies', 'iam:ListGroups',
+                       'iam:ListGroupsForUser', 'iam:ListPolicies', 'iam:ListPoliciesGrantingServiceAccess',
+                       'iam:ListPolicyVersions', 'iam:ListRolePolicies',
+                       'iam:ListAttachedGroupPolicies', 'iam:ListAttachedRolePolicies', 'iam:ListAttachedUserPolicies',
+                       'iam:ListRoles', 'iam:ListUsers',
+                       'iam:AddUserToGroup', 'iam:AttachGroupPolicy', 'iam:DeleteGroupPolicy', 'iam:DeleteUserPolicy',
+                       'iam:DetachGroupPolicy',
+                       'iam:DetachRolePolicy', 'iam:DetachUserPolicy', 'iam:PutGroupPolicy', 'iam:PutUserPolicy',
+                       'iam:RemoveUserFromGroup', 'iam:UpdateGroup',
                        'iam:UpdateAssumeRolePolicy', 'iam:UpdateUser']
 
-        iam_master = ['iam:AddUserToGroup', 'iam:AttachGroupPolicy', 'iam:DeleteGroupPolicy', 'iam:DeleteUserPolicy', 'iam:DetachGroupPolicy',
-                      'iam:DetachRolePolicy', 'iam:DetachUserPolicy', 'iam:PutGroupPolicy', 'iam:PutUserPolicy', 'iam:RemoveUserFromGroup', 'iam:UpdateGroup',
-                      'iam:UpdateAssumeRolePolicy', 'iam:UpdateUser', 'iam:GetPolicy', 'iam:GetPolicyVersion', 'iam:GetRole', 'iam:GetRolePolicy', 'iam:GetUser',
-                      'iam:GetUserPolicy', 'iam:ListEntitiesForPolicy', 'iam:ListGroupPolicies', 'iam:ListGroups', 'iam:ListGroupsForUser', 'iam:ListPolicies',
-                      'iam:ListPoliciesGrantingServiceAccess', 'iam:ListPolicyVersions', 'iam:ListRolePolicies', 'iam:ListAttachedGroupPolicies',
+        iam_master = ['iam:AddUserToGroup', 'iam:AttachGroupPolicy', 'iam:DeleteGroupPolicy', 'iam:DeleteUserPolicy',
+                      'iam:DetachGroupPolicy',
+                      'iam:DetachRolePolicy', 'iam:DetachUserPolicy', 'iam:PutGroupPolicy', 'iam:PutUserPolicy',
+                      'iam:RemoveUserFromGroup', 'iam:UpdateGroup',
+                      'iam:UpdateAssumeRolePolicy', 'iam:UpdateUser', 'iam:GetPolicy', 'iam:GetPolicyVersion',
+                      'iam:GetRole', 'iam:GetRolePolicy', 'iam:GetUser',
+                      'iam:GetUserPolicy', 'iam:ListEntitiesForPolicy', 'iam:ListGroupPolicies', 'iam:ListGroups',
+                      'iam:ListGroupsForUser', 'iam:ListPolicies',
+                      'iam:ListPoliciesGrantingServiceAccess', 'iam:ListPolicyVersions', 'iam:ListRolePolicies',
+                      'iam:ListAttachedGroupPolicies',
                       'iam:ListAttachedRolePolicies', 'iam:ListAttachedUserPolicies', 'iam:ListRoles', 'iam:ListUsers']
         try:
             role_name = self.execution_args['args'].get("role_name")
@@ -7169,7 +6963,9 @@ class ManagedCode(object):
                 operation_args.update(
                     RoleName=role['RoleName'])
                 role_policies = run_aws_operation(
-                    credentials, 'iam', 'list_role_policies',
+                    credentials,
+                    'iam',
+                    'list_role_policies',
                     operation_args=operation_args,
                     response_key='PolicyNames')
                 for policy in role_policies:
@@ -7177,15 +6973,17 @@ class ManagedCode(object):
                         RoleName=role['RoleName'],
                         PolicyName=policy)
                     response = run_aws_operation(
-                        credentials, 'iam', 'get_role_policy', operation_args = operation_args1)
+                        credentials, 'iam', 'get_role_policy', operation_args=operation_args1)
 
                     for action in response.get('PolicyDocument', {}).get('Statement', []):
+                        # Step1 : if Action Str contains only *
                         if action.get('Action') == "*":
                             output.append(
                                 OrderedDict(
                                     ResourceId=policy,
                                     ResourceName=policy,
                                     ResourceType='IAM'))
+                        # Step2 : if  Action Str contains :*
                         elif isinstance(action['Action'], str):
                             if action['Action'].find("*"):
                                 output.append(
@@ -7193,6 +6991,7 @@ class ManagedCode(object):
                                         ResourceId=policy,
                                         ResourceName=policy,
                                         ResourceType='IAM'))
+                        # Step3 : if Action Str contains sts:AssumeRole
                         elif action['Action'] == "sts:AssumeRole":
                             if action['Principal']['AWS'] == "*":
                                 output.append(
@@ -7200,6 +6999,7 @@ class ManagedCode(object):
                                         ResourceId=policy,
                                         ResourceName=policy,
                                         ResourceType='IAM'))
+                        # Step4 : if Action Str contains sts:AssumeRole
                         elif isinstance(action['Action'], list):
                             if 'iam:PassRole' in action['Action']:
                                 output.append(
@@ -7207,6 +7007,7 @@ class ManagedCode(object):
                                         ResourceId=policy,
                                         ResourceName=policy,
                                         ResourceType='IAM'))
+                        # Step5 : if Effect Str contains Allow
                         elif action['Effect'] == "Allow":
                             output.append(
                                 OrderedDict(
@@ -7375,57 +7176,6 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
-    def aws_kms_cross_account_access(self, **kwargs):
-        output = list()
-        evaluated_resources = 0
-        operation_args = {}
-        try:
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id') for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    kms_response = run_aws_operation(
-                        credentials,
-                        'kms',
-                        'list_aliases',
-                        region_name=region,
-                        response_key='Aliases')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for key in kms_response:
-                    evaluated_resources += 1
-                    try:
-                        operation_args.update(
-                            KeyId=key['TargetKeyId'], PolicyName='default')
-                    except Exception as e:
-                        if 'TargetKeyId' in str(e):
-                            continue
-                    try:
-                        key_info = run_aws_operation(
-                            credentials,
-                            'kms',
-                            'get_key_policy',
-                            region_name=region,
-                            operation_args=operation_args)
-                    except Exception as e:
-                        if 'No such policy exists' in str(e):
-                            continue
-                        raise e
-                    policy = json.loads(key_info.get('Policy', '{}'))
-                    for principal in policy.get('Statement', []):
-                        if principal['Principal']['AWS'] == "*":
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=key['TargetKeyId'],
-                                    ResourceName=key['TargetKeyId'],
-                                    ResourceType='KMS'))
-
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
-
     def aws_kms_customer_master_key_in_use(self, **kwargs):
         try:
             output = list()
@@ -7476,7 +7226,8 @@ class ManagedCode(object):
             evaluated_resources = 0
             operation_args = {}
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id') for region in self.execution_args['regions']]
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     efs_response = run_aws_operation(
@@ -7487,7 +7238,8 @@ class ManagedCode(object):
                         response_key='FileSystems')
                 except Exception as e:
                     raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(str(e)))
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
                 for efs in efs_response:
                     evaluated_resources += 1
                     try:
@@ -7500,16 +7252,19 @@ class ManagedCode(object):
                             operation_args=operation_args,
                             response_key='Aliases')
                         for key in kms_list_aliases:
-                            if 'aws/elasticfilesystem' in key.get('AliasName', ''):
+                            if 'aws/elasticfilesystem' in key['AliasName']:
                                 output.append(
                                     OrderedDict(
                                         ResourceId=efs['FileSystemId'],
                                         ResourceName=efs['FileSystemId'],
-                                        ResourceType='ElasticFileSystem'))
+                                        ResourceType='efs'))
                     except Exception as e:
                         if 'KmsKeyId' in str(e):
-                            continue
-                        raise e
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=efs['FileSystemId'],
+                                    ResourceName=efs['FileSystemId'],
+                                    ResourceType='efs'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -7536,16 +7291,16 @@ class ManagedCode(object):
                     operation_args.update(Filters=[
                         {
                             'Name': 'vpc-id',
-                                    'Values': [
-                                        vpc['VpcId'],
-                                    ]
+                            'Values': [
+                                vpc['VpcId'],
+                            ]
                         },
                         {
                             'Name': 'state',
-                                    'Values': [
-                                        'available',
-                                    ]
-                        },])
+                            'Values': [
+                                'available',
+                            ]
+                        }, ])
                     nat_gateway = run_aws_operation(
                         credentials,
                         'ec2',
@@ -7709,7 +7464,7 @@ class ManagedCode(object):
                     operation_args.update(Filters=[
                         {'Name': '%s' % (filter_name),
                          'Values': ['%s' % (filter_values)]},
-                    ],)
+                    ], )
                     vpn_response = run_aws_operation(
                         credentials,
                         'ec2',
@@ -7768,10 +7523,10 @@ class ManagedCode(object):
                     operation_args.update(Filters=[
                         {'Name': "tag:%s" % (web_tier_tag),
                          'Values': [
-                            web_tier_tag_value,
-                        ]
-                        },
-                    ],)
+                             web_tier_tag_value,
+                         ]
+                         },
+                    ], )
                     ebs_volumes_response = run_aws_operation(
                         credentials,
                         'ec2',
@@ -7800,7 +7555,8 @@ class ManagedCode(object):
         evaluated_resources = 0
         try:
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id') for region in self.execution_args['regions']]
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     db_clusters = run_aws_operation(
@@ -7811,15 +7567,15 @@ class ManagedCode(object):
                         response_key='DBClusters')
                 except Exception as e:
                     raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'. format(str(e)))
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
                 for each_dbcluster in db_clusters:
                     evaluated_resources += 1
-                    if not each_dbcluster.get("DeletionProtection"):
+                    if not each_dbcluster["DeletionProtection"]:
                         output.append(
                             OrderedDict(
-                                ResourceId=each_dbcluster['DatabaseName'],
-                                ResourceName=each_dbcluster['DatabaseName'],
-                                Resource='RDS'))
+                                DatabaseName=each_dbcluster['DBClusterIdentifier'],
+                                ResourceType='RDS'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -7872,13 +7628,12 @@ class ManagedCode(object):
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(str(e)))
                 for info in rds_response:
                     evaluated_resources += 1
-                    if not info[config]:
+                    if config not in info or len(info[config]) > 0:
                         output.append(
                             OrderedDict(
                                 ResourceId=info['DBInstanceIdentifier'],
                                 ResourceName=info['DBInstanceIdentifier'],
                                 ResourceType='RDS'))
-
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -7954,7 +7709,6 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
-
     def common_rds_describe_db_instances_fun(self, check_type):
         output = list()
         evaluated_resources = 0
@@ -8010,23 +7764,31 @@ class ManagedCode(object):
         evaluated_resources = 0
         try:
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id') for region in self.execution_args['regions']]
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
+            security_group_event_subscription = False
             for region in regions:
                 try:
                     rds_response = run_aws_operation(
-                        credentials, 'rds', 'describe_event_subscriptions', region_name=region,
+                        credentials,
+                        'rds',
+                        'describe_event_subscriptions',
+                        region_name=region,
                         response_key='EventSubscriptionsList')
                 except Exception as e:
                     raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(str(e)))
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
                 for info in rds_response:
                     evaluated_resources += 1
-                    if info['SourceType'] != 'db-security-group':
-                        output.append(
-                            OrderedDict(
-                                ResourceId=info['CustomerAwsId'],
-                                ResourceName=info['CustomerAwsId'],
-                                ResourceType='RDS'))
+                    if info['SourceType'] == 'db-security-group':
+                        security_group_event_subscription = True
+                if not security_group_event_subscription:
+                    output.append(
+                        OrderedDict(
+                            ResourceId=info['CustomerAwsId'],
+                            ResourceName=info['CustomerAwsId'],
+                            ResourceType='rds'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -9275,18 +9037,18 @@ class ManagedCode(object):
 
     def aws_ebs_snapshot_public_restorable_check(self, **kwargs):
         output = list()
+        evaluated_resources = 0
         operation_args = {}
-        snapshot_list = list()
         operation_args1 = {}
         try:
-            service_account_id = self.execution_args.get("service_account_id")
+            service_account_id = self.execution_args['service_account_id']
             credentials = self.execution_args['auth_values']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     operation_args.update(Filters=[{'Name': 'status', 'Values': [
-                                          'completed', ]}, ], OwnerIds=[service_account_id, ])
+                        'completed', ]}, ], OwnerIds=[service_account_id, ])
                     ebs_response = run_aws_operation(
                         credentials,
                         'ec2',
@@ -9298,11 +9060,11 @@ class ManagedCode(object):
                     raise Exception(
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
-                for snapshots in ebs_response['Snapshots']:
+                for snapshots in ebs_response:
                     operation_args1.update(
                         Attribute='createVolumePermission',
                         SnapshotId=snapshots['SnapshotId'])
-                    snapshot_list.append(snapshots['SnapshotId'])
+                    evaluated_resources += 1
                     snapshot_response = run_aws_operation(
                         credentials,
                         'ec2',
@@ -9317,12 +9079,10 @@ class ManagedCode(object):
                                         OrderedDict(
                                             ResourceId=snapshots['SnapshotId'],
                                             ResourceName=snapshots['SnapshotId'],
-                                            ResourceType='EC2',
-                                            ServiceAccountId=service_account_id,
-                                            ServiceAccountName=service_account_id))
-            return output, len(snapshot_list)
+                                            Resource='ec2'))
+            return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_elbv2_access_log(self, **kwargs):
         output = list()
@@ -9365,112 +9125,14 @@ class ManagedCode(object):
                                     ResourceId=elb['LoadBalancerName'],
                                     ResourceName=elb['LoadBalancerName'],
                                     ResourceType="ELB"))
-            return output, evaluated_resources
+            if output:
+                policy_output = {v['ResourceId']: v for v in output}.values()
+                output = policy_output
+                return output, evaluated_resources
+            else:
+                return output, evaluated_resources
         except Exception as e:
             raise Exception(e.message)
-
-    def aws_network_load_balancer_security_policy(self, **kwargs):
-        output = list()
-        evaluated_resources = 0
-        operation_args = {}
-        policy_list = [
-            'ELBSecurityPolicy-2016-08',
-            'ELBSecurityPolicy-TLS-1-1-2017-01',
-            'ELBSecurityPolicy-FS-2018-06',
-            'ELBSecurityPolicy-TLS-1-2-Ext-2018-06']
-        try:
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    elb_response = run_aws_operation(
-                        credentials,
-                        'elbv2',
-                        'describe_load_balancers',
-                        region_name=region,
-                        response_key='LoadBalancers')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for elb in elb_response:
-                    evaluated_resources += 1
-                    operation_args.update(
-                        LoadBalancerArn=elb['LoadBalancerArn'])
-                    elb_listener_info = run_aws_operation(
-                        credentials,
-                        'elbv2',
-                        'describe_listeners',
-                        operation_args=operation_args,
-                        response_key='Listeners')
-                    for elb_listener in elb_listener_info:
-                        if not (
-                                'SslPolicy' in elb_listener and elb_listener['SslPolicy'] in policy_list):
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=elb['LoadBalancerName'],
-                                    ResourceName=elb['LoadBalancerName'],
-                                    ResourceType="elb"))
-            return output, evaluated_resources
-
-        except Exception as e:
-            raise Exception(e.message)
- 
-    def aws_webtier_elb_listener_security(self, **kwargs):
-        try:
-            output = list()
-            evaluated_resources = 0
-            operation_args = {}
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            web_tier_tag_key = self.execution_args.get("web_tier_tag")["key"]
-            web_tier_tag_value = self.execution_args.get("web_tier_tag")[
-                "value"]
-            for region in regions:
-                try:
-                    elb_response = run_aws_operation(
-                        credentials,
-                        'elb',
-                        'describe_load_balancers',
-                        region_name=region,
-                        response_key='LoadBalancerDescriptions')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-
-                for elb in elb_response:
-                    evaluated_resources += 1
-                    operation_args.update(
-                        LoadBalancerNames=[elb['LoadBalancerName']])
-                    tag_info = run_aws_operation(
-                        credentials,
-                        'elb',
-                        'describe_tags',
-                        operation_args=operation_args)
-                    for elb_tag in tag_info['TagDescriptions']:
-                        for tag in elb_tag['Tags']:
-                            if tag['Value'] == web_tier_tag_value and tag['Key'] == web_tier_tag_key:
-                                if elb['ListenerDescriptions']:
-                                    for listener_descriptions in elb['ListenerDescriptions']:
-                                        if not listener_descriptions['Listener']['Protocol'] in [
-                                                'HTTPS', 'SSL']:
-                                            output.append(
-                                                OrderedDict(
-                                                    ResourceId=elb['LoadBalancerName'],
-                                                    ResourceName=elb['LoadBalancerName'],
-                                                    ResourceType='elb'))
-                                else:
-                                    output.append(
-                                        OrderedDict(
-                                            ResourceId=elb['LoadBalancerName'],
-                                            ResourceName=elb['LoadBalancerName'],
-                                            ResourceType='elb'))
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
 
     def aws_web_tier_elb_security_policy(self, **kwargs):
         output, evaluated_resources = self.common_ssl_tls_server_certificate_to_tier(
@@ -9481,7 +9143,7 @@ class ManagedCode(object):
         output, evaluated_resources = self.common_ssl_tls_server_certificate_to_tier(
             'health_check')
         return output, evaluated_resources
-    
+
     def aws_expired_ssl_tls_certificate(self, **kwargs):
         output = list()
         evaluated_resources = 0
@@ -9505,7 +9167,7 @@ class ManagedCode(object):
             return output, evaluated_resources
         except Exception as e:
             raise Exception(e.message)
-        
+
     def aws_rds_auto_minor_version_upgrade(self, **kwargs):
         output, evaluated_resources = self.common_rds_describe_db_instances_fun(
             'version_upgrade')
@@ -9515,7 +9177,8 @@ class ManagedCode(object):
         try:
             output = list()
             evaluated_resources = 0
-            desired_instance_list = self.execution_args['desired_instance_list']
+            desired_instance_list = list(
+                map(str.strip, self.execution_args['args']['desired_instance_list'].split(',')))
             credentials = self.execution_args['auth_values']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
@@ -9529,7 +9192,7 @@ class ManagedCode(object):
                         response_key='DBInstances')
                 except Exception as e:
                     raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'. format(
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
                 for _data in db_clusters:
                     evaluated_resources += 1
@@ -9543,7 +9206,7 @@ class ManagedCode(object):
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
-        
+
     def aws_s3_cross_account_access(self, **kwargs):
         try:
             output = list()
@@ -9574,7 +9237,12 @@ class ManagedCode(object):
                 except Exception as e:
                     if 'NoSuchBucketPolicy' in str(e):
                         continue
-            return output, evaluated_resources
+            if output:
+                policy_output = {v['ResourceId']: v for v in output}.values()
+                output = policy_output
+                return output, evaluated_resources
+            else:
+                return output, evaluated_resources
         except Exception as e:
             raise Exception(e.message)
 
@@ -9583,48 +9251,16 @@ class ManagedCode(object):
             'canary_token')
         return output, evaluated_resources
 
-    def aws_cw_metrics_threshold_enabled(self, **kwargs):
-        output = list()
-        evaluated_resources = 0
-        try:
-            service_account_name = self.execution_args.get(
-                "service_account_name")
-            credentials = self.execution_args['auth_values']
-            list_metrics = self.execution_args['args'].get(
-                'list_metrics', '').split(',')
-            for cloudwatch_metrics in list_metrics:
-                cloudwatch_metrics = cloudwatch_metrics.strip()
-                cloudwatch_response = run_aws_operation(
-                    credentials,
-                    'cloudwatch',
-                    'describe_alarms_for_metric',
-                    operation_args={
-                        'MetricName': cloudwatch_metrics,
-                        'Namespace': service_account_name})
-                for alarm in cloudwatch_response.get('MetricAlarms', []):
-                    evaluated_resources += 1
-                    if not alarm.get('AlarmName', {}).get('Threshold'):
-                        output.append(
-                            OrderedDict(
-                                ResourceId=alarm.get(
-                                    'AlarmName', ''), ResourceName=alarm.get(
-                                    'AlarmName', ''), Resource='Cloudwatch'))
-
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
-
     def aws_iam_root_account_active_signing_certificates(self, **kwargs):
         output, evaluated_resources = self.iam_root_access(
             'root_account_signing_certificates')
         return output, evaluated_resources
-    
+
     def aws_alb_waf_enabled(self, **kwargs):
         output = list()
-        elb_list = list()
+        evaluated_resources = 0
         operation_args = {}
         try:
-            service_account_id = self.execution_args.get("service_account_id")
             credentials = self.execution_args['auth_values']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
@@ -9641,7 +9277,7 @@ class ManagedCode(object):
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
                 for alb in alb_response:
-                    elb_list.append(alb['LoadBalancerName'])
+                    evaluated_resources += 1
                     operation_args.update(
                         LoadBalancerArn=alb['LoadBalancerArn'])
                     alb_info = run_aws_operation(
@@ -9657,14 +9293,11 @@ class ManagedCode(object):
                                 OrderedDict(
                                     ResourceId=alb['LoadBalancerName'],
                                     ResourceName=alb['LoadBalancerName'],
-                                    Resource="elb",
-                                    ServiceAccountId=service_account_id,
-                                    ServiceAccountName=self.execution_args['service_account_name']))
-
-            return output, len(elb_list)
+                                    Resource="elb"))
+            return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
-        
+            raise Exception(str(e))
+
     def common_elasticsearch_encryption(self, check_type):
         output = list()
         evaluated_resources = 0
@@ -9687,8 +9320,9 @@ class ManagedCode(object):
                                                                    operation_args, region_name=region,
                                                                    response_key='DomainStatus')
                     if check_type == 'Enabled':
-                        if elasticsearch_domain_names.get('DomainStatus', {}).get('NodeToNodeEncryptionOptions', {}).get(
-                                'Enabled'):
+                        if elasticsearch_domain_names.get('DomainStatus', {}).get('NodeToNodeEncryptionOptions',
+                                                                                  {}).get(
+                            'Enabled'):
                             output.append(OrderedDict(ResourceId=domain_name.get('DomainName', {}),
                                                       ResourceName=domain_name.get('DomainName', {}),
                                                       Resource='ElasticSearch'))
@@ -9710,13 +9344,11 @@ class ManagedCode(object):
             self,
             **kwargs):
         output = list()
+        evaluated_resources = 0
         operation_args = {}
-        es_list = list()
         try:
-            service_account_id = self.execution_args.get("service_account_id")
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
+            regions = [region.get('id') for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     es_response = run_aws_operation(
@@ -9729,7 +9361,7 @@ class ManagedCode(object):
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
                 for domains in es_response['DomainNames']:
-                    es_list.append(domains['DomainName'])
+                    evaluated_resources += 1
                     operation_args.update(DomainName=domains['DomainName'])
                     esresponse = run_aws_operation(
                         credentials,
@@ -9738,21 +9370,19 @@ class ManagedCode(object):
                         operation_args,
                         region_name=region)
 
-                    value = esresponse['DomainStatus']['AccessPolicies']
+                    value = esresponse.get('DomainStatus', {}).get('AccessPolicies', '{}')
                     policies = json.loads(value)
-                    for policy in policies['Statement']:
-                        if policy['Principal']['AWS'] == "*":
+                    for policy in policies.get('Statement', []):
+                        if policy.get('Principal', {}).get('AWS') == "*":
                             output.append(
                                 OrderedDict(
                                     ResourceId=domains['DomainName'],
                                     ResourceName=domains['DomainName'],
-                                    Resource='es',
-                                    ServiceAccountId=service_account_id,
-                                    ServiceAccountName=self.execution_args['service_account_name']))
+                                    ResourceType='ElasticSearch'))
 
-            return output, es_list
+            return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_audit_elasticsearch_nodetonode_encryption(self):
         output, evaluated_resources = self.common_elasticsearch_encryption('Enabled')
@@ -9791,7 +9421,7 @@ class ManagedCode(object):
                 credentials, 's3', 'list_buckets')
             operation_args = {}
             for bucket in s3_buckets['Buckets']:
-                operation_args.update(bucket['Name'])
+                operation_args.update(Bucket=bucket['Name'])
                 evaluated_resources += 1
                 try:
                     bucket_response = run_aws_operation(
@@ -9803,19 +9433,22 @@ class ManagedCode(object):
                                 ResourceName=bucket['Name'],
                                 ResourceType='s3'))
                 except Exception as err:
-                    if err.response['Error']['Code'] == 'NoSuchBucketPolicy':
+                    if 'NoSuchBucketPolicy' in str(err):
                         continue
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_s3_bucket_policy_grantee_check(self):
         try:
             output = list()
             evaluated_resources = 0
             credentials = self.execution_args['auth_values']
-            s3_buckets = run_aws_operation(credentials, 's3', 'list_buckets')
-            account_access_list = self.execution_args['account_access_list']
+            account_access_list = list(map(str.strip, self.execution_args["args"]['account_access_list'].split(',')))
+            s3_buckets = run_aws_operation(
+                credentials,
+                's3',
+                'list_buckets')
             operation_args = {}
             for bucket in s3_buckets['Buckets']:
                 operation_args.update(Bucket=bucket['Name'])
@@ -9838,39 +9471,6 @@ class ManagedCode(object):
                     if 'NoSuchBucketPolicy' in str(e):
                         continue
             return output, evaluated_resources
-        except Exception as e:
-            raise Exception(str(e))
-
-    def aws_rds_multi_availability_zone_not_enabled_instance(self):
-        try:
-            output = list()
-            zone_list = list()
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            service_account_id = self.execution_args.get("service_account_id")
-            for region in regions:
-                try:
-                    zone_list.append(region)
-                    db_clusters = run_aws_operation(
-                        credentials,
-                        'rds',
-                        'describe_db_clusters',
-                        region_name=region,
-                        response_key='DBClusters')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'. format(
-                            str(e)))
-                for _data in db_clusters:
-                    if _data['MultiAZ'] == 'False':
-                        output.append(
-                            OrderedDict(
-                                DatabaseName=_data['DatabaseName'],
-                                Resource='rds',
-                                ServiceAccountId=service_account_id,
-                                ServiceAccountName=self.execution_args['service_account_name']))
-            return output, len(zone_list)
         except Exception as e:
             raise Exception(str(e))
 
@@ -9951,7 +9551,7 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
-    def aws_iam_check_attached_policies(self, function, id, name, operation_args, policy_arns):
+    def aws_iam_check_attached_policies(self, function, credentials, id, name, operation_args, policy_arns):
         try:
             output = list()
             credentials = self.execution_args['auth_values']
@@ -9977,7 +9577,7 @@ class ManagedCode(object):
         evaluated_resources = 0
         try:
             credentials = self.execution_args['auth_values']
-            policy_arns = self.execution_args.get('policy_arns')
+            policy_arns = list(map(str.strip, self.execution_args["args"]['policy_arns'].split(',')))
             operation_args = {}
             # Group Resource
             group_response = run_aws_operation(
@@ -9985,39 +9585,45 @@ class ManagedCode(object):
             for group in group_response:
                 evaluated_resources += 1
                 operation_args.update(GroupName=group['GroupName'])
-                output.append(self.aws_iam_check_attached_policies('list_attached_group_policies', group['GroupId'],
-                                                                   group['GroupName'], operation_args, policy_arns))
+                response = self.aws_iam_check_attached_policies('list_attached_group_policies', credentials,
+                                                                group['GroupId'],
+                                                                group['GroupName'], operation_args, policy_arns)
+                if response:
+                    output.append(response)
             # User Resource
             user_response = run_aws_operation(
                 credentials, 'iam', 'list_users', response_key='Users')
             for user in user_response:
                 evaluated_resources += 1
+                operation_args = {}
                 operation_args.update(UserName=user['UserName'])
-                output.append(
-                    self.aws_iam_check_attached_policies('list_attached_user_policies', user['UserId'], user['UserName'],
-                                                         operation_args, policy_arns))
+                response = self.aws_iam_check_attached_policies('list_attached_user_policies', credentials,
+                                                                user['UserId'], user['UserName'],
+                                                                operation_args, policy_arns)
+                if response:
+                    output.append(response)
             # Role Resource
             role_response = run_aws_operation(
                 credentials, 'iam', 'list_roles', response_key='Roles')
             for role in role_response:
                 evaluated_resources += 1
+                operation_args = {}
                 operation_args.update(RoleName=role['RoleName'])
-                output.append(
-                    self.aws_iam_check_attached_policies('list_attached_role_policies', role['RoleId'], role['RoleName'],
-                                                         operation_args, policy_arns))
+                response = self.aws_iam_check_attached_policies('list_attached_role_policies', credentials,
+                                                                role['RoleId'], role['RoleName'],
+                                                                operation_args, policy_arns)
+                if response:
+                    output.append(response)
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_audit_unrestricted_port_access(self, **kwargs):
         output = list()
         evaluated_resources = 0
         try:
-            service_account_id = self.execution_args.get("service_account_id")
-            service_account_name = self.execution_args.get(
-                "service_account_name")
             credentials = self.execution_args['auth_values']
-            port_number = self.execution_args['port_number']
+            port_number = self.execution_args['args']['port_number']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
             for region in regions:
@@ -10036,8 +9642,7 @@ class ManagedCode(object):
                     evaluated_resources += 1
                     security_group_compliant = True
                     for security_group_ippermissions in security_group['IpPermissions']:
-                        if (
-                                security_group_ippermissions['IpProtocol']) != '-1':
+                        if (security_group_ippermissions['IpProtocol']) != '-1':
                             if (security_group_ippermissions['FromPort'] == port_number
                                     and security_group_ippermissions['ToPort'] == port_number):
                                 for ip_address in security_group_ippermissions['IpRanges']:
@@ -10052,63 +9657,9 @@ class ManagedCode(object):
                             OrderedDict(
                                 ResourceId=security_group['GroupId'],
                                 ResourceName=security_group['GroupId'],
-                                Resource="security_group",
-                                ServiceAccountId=service_account_id,
-                                ServiceAccountName=service_account_name))
+                                Resource="security_group"))
 
             return output, evaluated_resources
-        except Exception as e:
-            raise Exception(e.message)
-
-    def aws_lambda_service_without_deadletter_configuration(self, **kwargs):
-        try:
-            output = list()
-            lambda_function_list = list()
-            operation_args = {}
-            operation_args1 = {}
-            service_account_id = self.execution_args.get("service_account_id")
-            credentials = self.execution_args['auth_values']
-            operation_args.update(FunctionVersion='ALL')
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    lambda_response = run_aws_operation(
-                        credentials,
-                        'lambda',
-                        'list_functions',
-                        region_name=region,
-                        operation_args=operation_args,
-                        response_key='Functions')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for function in lambda_response:
-                    lambda_function_list.append(function['FunctionName'])
-                    try:
-                        operation_args1.update(
-                            FunctionName=function['FunctionName'])
-                        lambda_policy = run_aws_operation(
-                            credentials,
-                            'lambda',
-                            'get_function_configuration',
-                            region_name=region,
-                            operation_args=operation_args1)
-
-                        if not lambda_policy['DeadLetterConfig']['TargetArn']:
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=function['FunctionName'],
-                                    ResourceName=function['FunctionName'],
-                                    ResourceType='Lambda'))
-
-                    except ClientError as e:
-                        error_code = e.response.get("Error", {}).get("Code")
-                        if error_code == 'ResourceNotFoundException':
-                            pass
-
-            return output, len(lambda_function_list)
         except Exception as e:
             raise Exception(str(e))
 
@@ -10154,15 +9705,12 @@ class ManagedCode(object):
 
     def aws_audit_enable_rds_transport_encryption(self, **kwargs):
         output = list()
-        rds_cluster_name = list()
+        evaluated_resources = 0
         operation_args = {}
         try:
-            service_account_id = self.execution_args.get("service_account_id")
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
+            regions = [region.get('id') for region in self.execution_args['regions']]
             for region in regions:
-                print(region)
                 try:
                     rds_response = run_aws_operation(
                         credentials,
@@ -10175,8 +9723,7 @@ class ManagedCode(object):
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
                 for db_instance in rds_response:
-                    rds_cluster_name.append(
-                        db_instance['DBInstanceIdentifier'])
+                    evaluated_resources += 1
                     for db_parameter in db_instance['DBParameterGroups']:
                         operation_args.update(
                             DBParameterGroupName=db_parameter['DBParameterGroupName'])
@@ -10185,21 +9732,20 @@ class ManagedCode(object):
                             'rds',
                             'describe_db_parameters',
                             region_name=region,
-                            operation_args=operation_args)
-                        for parameter in dbparameter_response['Parameters']:
+                            operation_args=operation_args,
+                            response_key='Parameters')
+                        for parameter in dbparameter_response:
                             if parameter['ParameterName'] == 'rds.force_ssl':
                                 if parameter['ParameterValue'] == "0":
                                     output.append(
                                         OrderedDict(
                                             ResourceId=db_instance['DBInstanceIdentifier'],
                                             ResourceName=db_instance['DBInstanceIdentifier'],
-                                            Resource='RDS',
-                                            ServiceAccountId=service_account_id,
-                                            ServiceAccountName=self.execution_args['service_account_name']))
+                                            ResourceType='RDS'))
 
-            return output, len(rds_cluster_name)
+            return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_rds_enable_serverless_log_exports(self, **kwargs):
         try:
@@ -10209,50 +9755,60 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
-    def aws_instance_level_events_subscriptions(self, **kwargs):
+    def common_elastic_search_at_rest(self):
         output = list()
+        operation_args = {}
+        domain_names = list()
         evaluated_resources = 0
         try:
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
+            regions = [region.get('id') for region in self.execution_args['regions']]
             for region in regions:
                 try:
-                    rds_response = run_aws_operation(
+                    es_response = run_aws_operation(
                         credentials,
-                        'rds',
-                        'describe_event_subscriptions',
-                        region_name=region,
-                        response_key='EventSubscriptionsList')
-
+                        'es',
+                        'list_domain_names',
+                        region_name=region)
                 except Exception as e:
                     raise Exception(
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
-                evaluated_resources += 1
-                db_instance_subscription = list(
-                    filter(
-                        lambda event_subscription: event_subscription['SourceType'] == 'db-instance',
-                        rds_response))
-                if len(db_instance_subscription) == 0:
-                    output.append(
-                        OrderedDict(
-                            ResourceId=region,
-                            ResourceName=region,
-                            ResourceType='rds'))
+                for domains in es_response['DomainNames']:
+                    domain_names.append(domains['DomainName'])
+
+                operation_args.update(DomainNames=domain_names)
+                domains_response = run_aws_operation(
+                    credentials,
+                    'es',
+                    'describe_elasticsearch_domains',
+                    region_name=region,
+                    operation_args=operation_args)
+                for domain_status in domains_response['DomainStatusList']:
+                    evaluated_resources += 1
+                    if domain_status.get('EncryptionAtRestOptions', {}).get('Enabled') is False:
+                        output.append(
+                            OrderedDict(
+                                ResourceId=domain_status['DomainName'],
+                                ResourceName=domain_status['DomainName'],
+                                ResourceType='ElasticSearch'))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
+
+    def aws_elasticsearch_encryption_at_rest(self, **kwargs):
+        output, evaluated_resources = self.common_elastic_search_at_rest()
+        return output, evaluated_resources
 
     def aws_rds_reserved_db_instance_expiration(self):
         try:
             output = list()
             evaluated_resources = 0
             now = datetime.now()
+            seconds_in_day = 60 * 60 * 24
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            expiry_days = self.execution_args['expiry_days']
+            regions = [region.get('id') for region in self.execution_args['regions']]
+            expiry_days = self.execution_args['args']['expiry_days']
             for region in regions:
                 try:
                     db_clusters = run_aws_operation(
@@ -10263,19 +9819,20 @@ class ManagedCode(object):
                         response_key='ReservedDBInstances')
                 except Exception as e:
                     raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'. format(
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
                 for each_rd_instance in db_clusters:
                     evaluated_resources += 1
                     ri_start_time = each_rd_instance["StartTime"].replace(
                         tzinfo=None)
-                    expire_time = ri_start_time + timedelta(seconds=each_rd_instance['Duration'])
+                    days = each_rd_instance['Duration'] // seconds_in_day
+                    expire_time = ri_start_time + timedelta(days)
                     if (expire_time - now).days <= expiry_days:
                         output.append(
                             OrderedDict(
-                                DBName=each_rd_instance['DBInstanceIdentifier'],
-                                DBType=each_rd_instance['DBInstanceClass'],
-                                ResourceType='rds'))
+                                DBName=each_rd_instance['ReservedDBInstanceId'],
+                                DBType=each_rd_instance['ReservedDBInstanceId'],
+                                ResourceType='DBInstances'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -10309,18 +9866,18 @@ class ManagedCode(object):
                             credentials,
                             'redshift',
                             'describe_cluster_parameters',
+                            region_name=region,
                             operation_args=operation_args,
                             response_key='Parameters')
                         for cluster_parameter in cluster_parameters:
-                            if cluster_parameter['ParameterName'] == 'require_ssl' and cluster_parameter['ParameterValue'] == 'false':
+                            if cluster_parameter['ParameterName'] == 'require_ssl' and cluster_parameter[
+                                'ParameterValue'] == 'false':
                                 output.append(
                                     OrderedDict(
                                         ResourceId=cluster['ClusterIdentifier'],
                                         ResourceName=cluster['ClusterIdentifier'],
-                                        ResourceType="redshift"))
-
+                                        ResourceType="RedShift"))
             return output, evaluated_resources
-
         except Exception as e:
             raise Exception(e.message)
 
@@ -10328,11 +9885,12 @@ class ManagedCode(object):
         output = list()
         operation_args = {}
         evaluated_resources = 0
+        env = ['d', 't', 's', 'p', 'Dev', 'Test', 'Stg', 'Prod']
         try:
-            pattern = re.compile(self.execution_args.get("ami_naming_pattern"))
             credentials = self.execution_args['auth_values']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
+            pattern = re.compile("^ami-(" + "|".join(regions) + ")-(" + "|".join(env) + ")-([a-z0-9\-]+)$")
             for region in regions:
                 try:
                     operation_args.update(Owners=['self', ])
@@ -10356,10 +9914,10 @@ class ManagedCode(object):
                                         OrderedDict(
                                             ResourceId=images['ImageId'],
                                             ResourceName=images['ImageId'],
-                                            ResourceType='ec2'))
+                                            ResourceType='EC2'))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_elb_cross_zone_load_balancing_enabled(self, **kwargs):
         try:
@@ -10394,8 +9952,8 @@ class ManagedCode(object):
                     if elb_info.get(
                             'LoadBalancerAttributes',
                             {}).get(
-                            'CrossZoneLoadBalancing',
-                            {}).get('Enabled') == False:
+                        'CrossZoneLoadBalancing',
+                        {}).get('Enabled') == False:
                         output.append(
                             OrderedDict(
                                 ResourceId=elb['LoadBalancerName'],
@@ -10717,13 +10275,13 @@ class ManagedCode(object):
         output = list()
         evaluated_resources = 0
         try:
-            credentials = self.execution_args.get('auth_values',{})
+            credentials = self.execution_args.get('auth_values', {})
             iam_response = run_aws_operation(
                 credentials, 'iam', 'list_users', response_key='Users')
             operation_args = {}
             for iam in iam_response:
                 evaluated_resources += 1
-                operation_args.update(UserName=iam.get('UserName',{}))
+                operation_args.update(UserName=iam.get('UserName', {}))
                 iam_ssh_response = run_aws_operation(
                     credentials,
                     'iam',
@@ -10735,8 +10293,8 @@ class ManagedCode(object):
                         if ssh_key_details['Status'] == 'Active':
                             output.append(
                                 OrderedDict(
-                                    ResourceId=ssh_key_details.get('SSHPublicKeyId',{}),
-                                    ResourceName=ssh_key_details.get('SSHPublicKeyId',{}),
+                                    ResourceId=ssh_key_details.get('SSHPublicKeyId', {}),
+                                    ResourceName=ssh_key_details.get('SSHPublicKeyId', {}),
                                     ResourceType='IAM'))
             return output, evaluated_resources
         except Exception as e:
@@ -12006,7 +11564,7 @@ class ManagedCode(object):
                                 OrderedDict(
                                     ResourceId=alarm.get('AlarmName', ''),
                                     ResourceName=alarm.get('AlarmName', ''),
-                                    Resource='Cloudwatch'))
+                                    ResourceType='Cloudwatch'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -12848,11 +12406,13 @@ class ManagedCode(object):
     def aws_lambda_service_without_deadletter_configuration(self, **kwargs):
         try:
             output = list()
-            evaluated_resources = 0
+            lambda_function_list = list()
+            operation_args = {}
             operation_args1 = {}
             credentials = self.execution_args['auth_values']
-            operation_args = dict(FunctionVersion='ALL')
-            regions = [region.get('id') for region in self.execution_args['regions']]
+            operation_args.update(FunctionVersion='ALL')
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     lambda_response = run_aws_operation(
@@ -12867,7 +12427,7 @@ class ManagedCode(object):
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
                 for function in lambda_response:
-                    evaluated_resources += 1
+                    lambda_function_list.append(function['FunctionName'])
                     try:
                         operation_args1.update(
                             FunctionName=function['FunctionName'])
@@ -12877,18 +12437,25 @@ class ManagedCode(object):
                             'get_function_configuration',
                             region_name=region,
                             operation_args=operation_args1)
-                        if not lambda_policy.get('DeadLetterConfig', {}).get('TargetArn'):
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=function['FunctionName'],
-                                    ResourceName=function['FunctionName'],
-                                    Resource='Lambda'))
+                        try:
+                            if not lambda_policy['DeadLetterConfig']['TargetArn']:
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=function['FunctionName'],
+                                        ResourceName=function['FunctionName'],
+                                        ResourceType='lambda'))
+                        except Exception as e:
+                            if 'DeadLetterConfig' in str(e):
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=function['FunctionName'],
+                                        ResourceName=function['FunctionName'],
+                                        ResourceType='lambda'))
                     except ClientError as e:
-                        if 'ResourceNotFoundException' in str(e):
-                            continue
-                        else:
-                            raise Exception(str(e))
-            return output, evaluated_resources
+                        error_code = e.response.get("Error", {}).get("Code")
+                        if error_code == 'ResourceNotFoundException':
+                            pass
+            return output, len(lambda_function_list)
         except Exception as e:
             raise Exception(str(e))
 
@@ -12948,7 +12515,8 @@ class ManagedCode(object):
         operation_args = {}
         try:
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id') for region in self.execution_args['regions']]
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     ec2_instance_response = run_aws_operation(
@@ -12967,18 +12535,21 @@ class ManagedCode(object):
                         operation_args.update(
                             InstanceId=instance['InstanceId'],
                             Attribute='disableApiTermination')
-                        ec2_info = run_aws_operation(
-                            credentials,
-                            'ec2',
-                            'describe_instance_attribute',
-                            region_name=region,
-                            operation_args=operation_args)
-                        if not ec2_info['DisableApiTermination']:
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=instance['InstanceId'],
-                                    ResourceName=instance['InstanceId'],
-                                    ResourceType="Instances"))
+                        try:
+                            ec2_info = run_aws_operation(
+                                credentials,
+                                'ec2',
+                                'describe_instance_attribute',
+                                region_name=region,
+                                operation_args=operation_args)
+                            if not ec2_info.get('DisableApiTermination', {}).get('Value'):
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=instance['InstanceId'],
+                                        ResourceName=instance['InstanceId'],
+                                        Resource='ec2'))
+                        except Exception as e:
+                            raise Exception(str(e))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -13032,7 +12603,7 @@ class ManagedCode(object):
                                 'completed'
                             ]
                         }
-                    ])
+                    ], OwnerIds=['self'])
                     ebs_volumes_response = run_aws_operation(
                         credentials,
                         'ec2',
@@ -13216,9 +12787,9 @@ class ManagedCode(object):
             raise Exception(str(e))
 
     def aws_rds_multi_availability_zone_not_enabled_instance(self):
+        output = list()
+        evaluated_resources = 0
         try:
-            output = list()
-            evaluated_resources = 0
             credentials = self.execution_args['auth_values']
             regions = [region.get('id') for region in self.execution_args['regions']]
             for region in regions:
@@ -13229,18 +12800,33 @@ class ManagedCode(object):
                         'describe_db_clusters',
                         region_name=region,
                         response_key='DBClusters')
+                    db_instance = run_aws_operation(
+                        credentials,
+                        'rds',
+                        'describe_db_instances',
+                        region_name=region,
+                        response_key='DBInstances')
+
                 except Exception as e:
                     raise Exception(
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
-                for data in db_clusters:
+                for db_info in db_clusters:
                     evaluated_resources += 1
-                    if not data['MultiAZ']:
+                    if not db_info['MultiAZ']:
                         output.append(
                             OrderedDict(
-                                ResourceId=data['DatabaseName'],
-                                ResourceName=data['DatabaseName'],
-                                Resource='RDS'))
+                                ResourceId=db_info['DBClusterIdentifier'],
+                                ResourceName=db_info['DBClusterIdentifier'],
+                                ResourceType='rds'))
+                for dbinstance in db_instance:
+                    evaluated_resources += 1
+                    if not dbinstance['MultiAZ']:
+                        output.append(
+                            OrderedDict(
+                                ResourceId=dbinstance['DBInstanceIdentifier'],
+                                ResourceName=dbinstance['DBInstanceIdentifier'],
+                                ResourceType='RDS'))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
@@ -13284,8 +12870,8 @@ class ManagedCode(object):
         evaluated_resources = 0
         try:
             credentials = self.execution_args['auth_values']
-            regions = self.execution_args['regions']
-            authorized_vpc = self.execution_args['authorized_vpc']
+            regions = [region.get('id') for region in self.execution_args.get('regions', {})]
+            authorized_vpc = list(map(str.strip, self.execution_args["args"]['authorized_vpc'].split(',')))
             for region in regions:
                 try:
                     nat_gateway = run_aws_operation(
@@ -13308,42 +12894,7 @@ class ManagedCode(object):
                                 ResourceType='ec2'))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
-
-    def aws_instance_level_events_subscriptions(self, **kwargs):
-        output = list()
-        evaluated_resources = 0
-        try:
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    rds_response = run_aws_operation(
-                        credentials,
-                        'rds',
-                        'describe_event_subscriptions',
-                        region_name=region,
-                        response_key='EventSubscriptionsList')
-
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                evaluated_resources += 1
-                db_instance_subscription = list(
-                    filter(
-                        lambda event_subscription: event_subscription['SourceType'] == 'db-instance',
-                        rds_response))
-                if len(db_instance_subscription) == 0:
-                    output.append(
-                        OrderedDict(
-                            ResourceId=region,
-                            ResourceName=region,
-                            ResourceType='rds'))
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_network_load_balancer_security_policy(self, **kwargs):
         output = list()
@@ -13378,11 +12929,11 @@ class ManagedCode(object):
                         credentials,
                         'elbv2',
                         'describe_listeners',
+                        region_name=region,
                         operation_args=operation_args,
                         response_key='Listeners')
                     for elb_listener in elb_listener_info:
-                        if not (
-                                'SslPolicy' in elb_listener and elb_listener['SslPolicy'] in policy_list):
+                        if not ('SslPolicy' in elb_listener and elb_listener['SslPolicy'] in policy_list):
                             output.append(
                                 OrderedDict(
                                     ResourceId=elb['LoadBalancerName'],
@@ -13391,7 +12942,7 @@ class ManagedCode(object):
             return output, evaluated_resources
 
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_webtier_elb_listener_security(self, **kwargs):
         try:
@@ -13399,11 +12950,9 @@ class ManagedCode(object):
             evaluated_resources = 0
             operation_args = {}
             credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            web_tier_tag_key = self.execution_args.get("web_tier_tag")["key"]
-            web_tier_tag_value = self.execution_args.get("web_tier_tag")[
-                "value"]
+            web_tier_tag_key = self.execution_args['args'].get("web_tier_tag_key")
+            web_tier_tag_value = self.execution_args['args'].get("web_tier_tag_value")
+            regions = [region.get('id') for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     elb_response = run_aws_operation(
@@ -13425,14 +12974,14 @@ class ManagedCode(object):
                         credentials,
                         'elb',
                         'describe_tags',
+                        region_name=region,
                         operation_args=operation_args)
                     for elb_tag in tag_info['TagDescriptions']:
                         for tag in elb_tag['Tags']:
                             if tag['Value'] == web_tier_tag_value and tag['Key'] == web_tier_tag_key:
                                 if elb['ListenerDescriptions']:
                                     for listener_descriptions in elb['ListenerDescriptions']:
-                                        if not listener_descriptions['Listener']['Protocol'] in [
-                                                'HTTPS', 'SSL']:
+                                        if not listener_descriptions['Listener']['Protocol'] in ['HTTPS', 'SSL']:
                                             output.append(
                                                 OrderedDict(
                                                     ResourceId=elb['LoadBalancerName'],
@@ -13454,7 +13003,8 @@ class ManagedCode(object):
         operation_args = {}
         credentials = self.execution_args['auth_values']
         try:
-            regions = self.execution_args['regions']
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
             for region in regions:
                 try:
                     lambda_response = run_aws_operation(
@@ -13477,7 +13027,7 @@ class ManagedCode(object):
                         'get_function',
                         region_name=region,
                         operation_args=operation_args)
-                    role = function_response['Configuration']['Role']
+                    role = function_response.get('Configuration', {}).get('Role')
                     if role != " ":
                         output.append(
                             OrderedDict(
@@ -13486,64 +13036,14 @@ class ManagedCode(object):
                                 ResourceType='lambda'))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
-
-    def aws_alb_http_to_https_redirection_check(self, **kwargs):
-        output = list()
-        operation_args = {}
-        evaluated_resources = 0
-        try:
-            service_account_id = self.execution_args.get("service_account_id")
-            service_account_name = self.execution_args.get(
-                "service_account_name")
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    alb_response = run_aws_operation(
-                        credentials,
-                        'elbv2',
-                        'describe_load_balancers',
-                        region_name=region)
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for alb in alb_response['LoadBalancers']:
-                    evaluated_resources += 1
-                    operation_args.update(
-                        LoadBalancerArn=alb['LoadBalancerArn'])
-                    listener_info = run_aws_operation(
-                        credentials,
-                        'elbv2',
-                        'describe_load_balancer_attributes',
-                        operation_args=operation_args,
-                        region_name=region)
-                    for listener in listener_info['Listeners']:
-                        try:
-                            if listener['Protocol'] == 'HTTP':
-                                for redirect in listener['DefaultActions']:
-                                    if redirect['RedirectConfig']['Protocol'] != 'HTTPS':
-                                        output.append(
-                                            OrderedDict(
-                                                ResourceId=alb['LoadBalancerName'],
-                                                ResourceName=alb['LoadBalancerName'],
-                                                ResourceType="ELB",
-                                                ServiceAccountId=service_account_id,
-                                                ServiceAccountName=service_account_name))
-                        except KeyError as e:
-                            print(e)
-            return output, evaluated_resources
-        except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_ec2_securitygroup_with_bastionssh(self, **kwargs):
         output = list()
         evaluated_resources = 0
         try:
             credentials = self.execution_args['auth_values']
-            allowed_host = self.execution_args['allowed_host']
+            allowed_host = list(map(str.strip, self.execution_args['args']['allowed_host'].split(',')))
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
             for region in regions:
@@ -13558,7 +13058,7 @@ class ManagedCode(object):
                     raise Exception(
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
-                for security_group in security_groups['SecurityGroups']:
+                for security_group in security_groups:
                     evaluated_resources += 1
                     security_group_compliant = True
                     for security_group_ippermissions in security_group['IpPermissions']:
@@ -13637,59 +13137,13 @@ class ManagedCode(object):
         except Exception as e:
             raise Exception(str(e))
 
-    def aws_alb_waf_enabled(self, **kwargs):
-        output = list()
-        elb_list = list()
-        operation_args = {}
-        try:
-            service_account_id = self.execution_args.get("service_account_id")
-            credentials = self.execution_args['auth_values']
-            regions = [region.get('id')
-                       for region in self.execution_args['regions']]
-            for region in regions:
-                try:
-                    alb_response = run_aws_operation(
-                        credentials,
-                        'elbv2',
-                        'describe_load_balancers',
-                        region_name=region,
-                        response_key='LoadBalancers')
-                except Exception as e:
-                    raise Exception(
-                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
-                            str(e)))
-                for alb in alb_response:
-                    elb_list.append(alb['LoadBalancerName'])
-                    operation_args.update(
-                        LoadBalancerArn=alb['LoadBalancerArn'])
-                    alb_info = run_aws_operation(
-                        credentials,
-                        'elbv2',
-                        'describe_load_balancer_attributes',
-                        operation_args=operation_args,
-                        region_name=region)
-                    for logging_info in alb_info['Attributes']:
-                        if (logging_info['Key'] ==
-                                'waf.fail_open.enabled' and logging_info['Value'] == 'false'):
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=alb['LoadBalancerName'],
-                                    ResourceName=alb['LoadBalancerName'],
-                                    Resource="elb",
-                                    ServiceAccountId=service_account_id,
-                                    ServiceAccountName=self.execution_args['service_account_name']))
-
-            return output, len(elb_list)
-        except Exception as e:
-            raise Exception(e.message)
-
     def aws_elasticsearch_minimum_version(self, **kwargs):
         output = list()
         operation_args = {}
         evaluated_resources = 0
         try:
             credentials = self.execution_args['auth_values']
-            elasticsearch_minimum_version = self.execution_args['elasticsearch_minimum_version']
+            elasticsearch_minimum_version = self.execution_args['args']['elasticsearch_minimum_version']
             domain_names = list()
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
@@ -13706,7 +13160,8 @@ class ManagedCode(object):
                             str(e)))
                 for domains in es_response['DomainNames']:
                     domain_names.append(domains['DomainName'])
-                operation_args = {'DomainNames': domain_names}
+                operation_args.update(
+                    DomainNames=domain_names)
                 esresponse = run_aws_operation(
                     credentials,
                     'es',
@@ -13721,14 +13176,15 @@ class ManagedCode(object):
                                 OrderedDict(
                                     ResourceId=domain_status['DomainName'],
                                     ResourceName=domain_status['DomainName'],
-                                    ResourceType='es'))
+                                    ResourceType='ElasticSearch'))
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
-    def aws_elasticsearch_encrypted_at_rest(self, **kwargs):
+    def common_elastic_search_at_rest(self):
         output = list()
         operation_args = {}
+        domain_names = list()
         evaluated_resources = 0
         try:
             credentials = self.execution_args['auth_values']
@@ -13746,34 +13202,38 @@ class ManagedCode(object):
                         'Permission Denied or Region is not enabled to access resource. Error {}'.format(
                             str(e)))
                 for domains in es_response['DomainNames']:
-                    operation_args.update(DomainNames=domains['DomainName'])
+                    domain_names.append(domains['DomainName'])
 
-                esresponse = run_aws_operation(
+                operation_args.update(DomainNames=domain_names)
+                domains_response = run_aws_operation(
                     credentials,
                     'es',
                     'describe_elasticsearch_domains',
-                    operation_args)
-                for domain_status in esresponse['DomainStatusList']:
+                    region_name=region,
+                    operation_args=operation_args)
+                for domain_status in domains_response['DomainStatusList']:
                     evaluated_resources += 1
-                    if domain_status.get('EncryptionAtRestOptions', {}).get('Enabled') == False:
+                    if domain_status.get(
+                            'EncryptionAtRestOptions',
+                            {}).get('Enabled') == False:
                         output.append(
                             OrderedDict(
                                 ResourceId=domain_status['DomainName'],
                                 ResourceName=domain_status['DomainName'],
                                 ResourceType='es'))
-
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
+
+    def aws_elasticsearch_encrypted_at_rest(self, **kwargs):
+        output, evaluated_resources = self.common_elastic_search_at_rest()
+        return output, evaluated_resources
 
     def aws_audit_dynamodb_pitr_enabled(self, **kwargs):
         output = list()
         operation_args = {}
         evaluated_resources = 0
         try:
-            service_account_id = self.execution_args.get("service_account_id")
-            service_account_name = self.execution_args.get(
-                "service_account_name")
             credentials = self.execution_args['auth_values']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
@@ -13788,28 +13248,30 @@ class ManagedCode(object):
                 except Exception as e:
                     if "ResourceNotFoundError" in str(e):
                         continue
-                if len(db_response) > 0:
-                    for tables in db_response['TableNames']:
-                        operation_args.update(TableName=tables['TableNames'])
-                        evaluated_resources += 1
-                        try:
-                            table_response = run_aws_operation(
-                                credentials, 'dynamodb', 'describe_continuous_backups', operation_args)
-                        except Exception as e:
-                            if "ResourceNotFoundError" in str(e):
-                                continue
-                        for info in table_response['ContinuousBackupsDescription']:
-                            if info['PointInTimeRecoveryDescription']['PointInTimeRecoveryStatus'] == 'DISABLED':
+                for table in db_response:
+                    operation_args.update(TableName=table)
+                    evaluated_resources += 1
+                    try:
+                        backup_response = run_aws_operation(
+                            credentials,
+                            'dynamodb',
+                            'describe_continuous_backups',
+                            region_name=region,
+                            operation_args=operation_args)
+                        for info in backup_response['ContinuousBackupsDescription']:
+                            if info.get('PointInTimeRecoveryDescription', {}).get(
+                                    'PointInTimeRecoveryStatus') == 'DISABLED':
                                 output.append(
                                     OrderedDict(
-                                        ResourceId=tables['TableNames'],
-                                        ResourceName=tables['TableNames'],
-                                        Resource='dynamodb',
-                                        ServiceAccountId=service_account_id,
-                                        ServiceAccountName=service_account_name))
+                                        ResourceId=table,
+                                        ResourceName=table,
+                                        ResourceType='DynamoDB'))
+                    except Exception as e:
+                        if "ResourceNotFoundError" in str(e):
+                            continue
             return output, evaluated_resources
         except Exception as e:
-            raise Exception(e.message)
+            raise Exception(str(e))
 
     def aws_dynamodb_table_encryption_enabled(self, **kwargs):
         output = list()
@@ -13871,8 +13333,8 @@ class ManagedCode(object):
         evaluated_resources = 0
         operation_args = {}
         try:
-            app_tier_tag = self.execution_args["app_tier_tag"]
-            app_tier_tag_value = self.execution_args["app_tier_tag_value"]
+            app_tier_tag = self.execution_args["args"]["app_tier_tag_key"]
+            app_tier_tag_value = self.execution_args["args"]["app_tier_tag_value"]
             credentials = self.execution_args['auth_values']
             regions = [region.get('id')
                        for region in self.execution_args['regions']]
@@ -13908,14 +13370,22 @@ class ManagedCode(object):
                             operation_args=operation_args,
                             region_name=region,
                             response_key='Tags')
-
                         for tag in ec2_tags:
                             if tag['Key'] != app_tier_tag and tag['Value'] != app_tier_tag_value:
-                                output.append(
-                                    OrderedDict(
-                                        ResourceId=ec2_instance_info['InstanceId'],
-                                        ResourceName=ec2_instance_info['InstanceId'],
-                                        ResourceType="EC2"))
+                                try:
+                                    if not ec2_instance_info['IamInstanceProfile']:
+                                        output.append(
+                                            OrderedDict(
+                                                ResourceId=ec2_instance_info['InstanceId'],
+                                                ResourceName=ec2_instance_info['InstanceId'],
+                                                ResourceType="EC2"))
+                                except Exception as e:
+                                    if 'IamInstanceProfile' in str(e):
+                                        output.append(
+                                            OrderedDict(
+                                                ResourceId=ec2_instance_info['InstanceId'],
+                                                ResourceName=ec2_instance_info['InstanceId'],
+                                                ResourceType="EC2"))
             return output, evaluated_resources
         except Exception as e:
             raise Exception(e.message)
@@ -14090,7 +13560,8 @@ class ManagedCode(object):
                     output.append(
                         OrderedDict(
                             ResourceId=self.execution_args['service_account_id'],
-                            ResourceName=self.execution_args.get('service_account_name', self.execution_args['service_account_id']),
+                            ResourceName=self.execution_args.get('service_account_name',
+                                                                 self.execution_args['service_account_id']),
                             Resource='CloudWatch'))
             return output, evaluated_resources
         except Exception as e:
@@ -14212,7 +13683,8 @@ class ManagedCode(object):
                     output.append(
                         OrderedDict(
                             ResourceId=self.execution_args['service_account_id'],
-                            ResourceName=self.execution_args.get('service_account_name', self.execution_args['service_account_id']),
+                            ResourceName=self.execution_args.get('service_account_name',
+                                                                 self.execution_args['service_account_id']),
                             ResourceType='Inspector'))
             return output, evaluated_resources
         except Exception as e:
@@ -14475,9 +13947,11 @@ class ManagedCode(object):
     def discovery_check(self, service_account_id):
         try:
             inventory_db = get_mongo_client(self.connection_args)['resource_inventory']
+            completed_date = datetime.utcnow() - timedelta(hours=24)
             query_to_check = {"service_account_id": service_account_id, "is_deleted": False,
                               "rediscover_status": "completed", "is_active": True, "data_sync.status": "success",
-                              "overall_status": "completed"}
+                              "overall_status": "completed", "data_sync.completed_at": {'$gt': completed_date},
+                              "data_sync.message": {'$exists': False}}
             account_info = list()
             account_details = inventory_db["service_inventory_dependency_configuration"].find_one(query_to_check)
             if account_details:
@@ -14523,11 +13997,14 @@ class ManagedCode(object):
             if self.discovery_check(service_account_id):
                 output = list(inventory_db["service_resource_dependent_inventory"].aggregate([{"$match":
                     {
-                        "service_account_id": service_account_id}},
+                        "service_account_id": service_account_id, 'is_deleted': False
+                        , 'summary_details.IsLatest': True
+                    }},
                     {"$group": {"_id": {
-                        "ResourceId": "$check_resource_element",
+                        "ResourceId": {'$arrayElemAt': [{'$split': ["$check_resource_element", '/']}, -1]},
                         "bucketName": "$additional_attributes.check_resource_parent_id",
-                        "Size": "$summary_details.Size"},
+                        "Size": "$summary_details.Size"
+                    },
                         "count": {
                             "$sum": 1}}},
                     {"$match": {
@@ -14542,7 +14019,8 @@ class ManagedCode(object):
                                   "ResourceId": "$_id.ResourceId",
                                   "bucketName": "$_id.bucketName",
                                   "Size": "$_id.Size",
-                                  "Count": "$count"}}], allowDiskUse = True))
+                                  "Count": "$count"
+                                  }}], allowDiskUse=True))
             return output, len(output)
         except Exception as e:
             raise Exception(str(e))
@@ -14551,6 +14029,7 @@ class ManagedCode(object):
         try:
             output = list()
             service_account_id = self.execution_args["service_account_id"]
+            elapsed_days = self.execution_args['args'].get("ElapsedDays")
             inventory_db = get_mongo_client(self.connection_args)['resource_inventory']
             if self.discovery_check(service_account_id):
                 inventory_query = {"service_account_id": service_account_id, "category": "Storage",
@@ -14560,7 +14039,7 @@ class ManagedCode(object):
                     for objects in objects_in_inventory:
                         last_modified = parse(objects.get("summary_details").get("LastModified"))
                         days_to_check = datetime.now(timezone.utc) - last_modified
-                        if days_to_check.days > 180:
+                        if days_to_check.days > int(elapsed_days):
                             response = {"ResourceId": objects.get("check_resource_element"),
                                         "BucketName": objects.get("summary_details").get("bucketName"),
                                         "ResourceType": objects.get("resource_type", ""),
@@ -15334,22 +14813,24 @@ class ManagedCode(object):
             regions = [region.get('id') for region in self.execution_args['regions']]
             for region in regions:
                 log_group_response = run_aws_operation(
-                    credentials, 'logs', 'describe_log_groups', response_key='logGroups', region_name=region)
+                    credentials, 'logs', 'describe_log_groups', region_name=region)
 
                 try:
                     for log_group in log_group_response:
-                        if not log_group.get('kmsKeyId'):
-                            output.append(
-                                OrderedDict(
-                                    ResourceId=log_group.get('logGroupName', ''),
-                                    ResourceName=log_group.get('logGroupName', ''),
-                                    ResourceType='CloudTrail'))
+                        if log_group and isinstance(log_group, dict):
+                            if not log_group.get('kmsKeyId'):
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=log_group.get('logGroupName', ''),
+                                        ResourceName=log_group.get('logGroupName', ''),
+                                        ResourceType='CloudTrail'))
 
                 except Exception as e:
                     raise Exception(str(e))
             return output, 1
         except Exception as e:
             raise Exception(str(e))
+
     def check_gcp_vm_instance_disk_not_encrypted_with_cmek(self, **kwargs):
         output = list()
         evaluated_resources = 0
@@ -15462,7 +14943,7 @@ class ManagedCode(object):
                     request = iam.projects().serviceAccounts().list(name=format_project_id).execute()
                     for account in request.get("accounts", []):
                         evaluated_resources += 1
-                        format_service_account = format_project_id + "serviceAccounts/" + account.get("email")
+                        format_service_account = format_project_id + "/serviceAccounts/" + account.get("email")
                         request_keys = iam.projects().serviceAccounts().keys().list(
                             name=format_service_account).execute()
                         if request_keys.get("keys"):
@@ -15616,7 +15097,7 @@ class ManagedCode(object):
                 request = sql.instances().list(project=project_id).execute()
                 while True:
                     for instance in request.get("items", []):
-                        if instance.get("databaseVersion")[0].lower() =='p':
+                        if instance.get("databaseVersion")[0].lower() == 'p':
                             evaluated_resources += 1
                             if instance.get("settings").get("databaseFlags"):
                                 for flags in instance["settings"]["databaseFlags"]:
@@ -15664,3 +15145,441 @@ class ManagedCode(object):
             return output, evaluated_resources
         except Exception as e:
             raise Exception(str(e))
+
+    def common_kms_customer_master_key_in_use(self, input_key, input_value):
+        output = list()
+        evaluated_resources = 0
+        operation_args = {}
+        try:
+            credentials = self.execution_args['auth_values']
+            tag_key = input_key
+            tag_value = input_value
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
+            for region in regions:
+                try:
+                    tier_key = False
+                    kms_response = run_aws_operation(
+                        credentials,
+                        'kms',
+                        'list_aliases',
+                        region_name=region,
+                        response_key='Aliases')
+                except Exception as e:
+                    raise Exception(
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
+                for key in kms_response:
+                    if 'alias/aws/' not in key['AliasName']:
+                        try:
+                            operation_args.update(KeyId=key['TargetKeyId'])
+                            evaluated_resources += 1
+                            key_response = run_aws_operation(
+                                credentials,
+                                'kms',
+                                'list_resource_tags',
+                                region_name=region,
+                                operation_args=operation_args)
+                            if key_response['Tags']:
+                                for tag in key_response['Tags']:
+                                    print(tag['TagKey'], tag['TagValue'])
+                                    if tag['TagKey'] != tag_key and tag['TagValue'] != tag_value:
+                                        tier_key = True
+                                        output.append(
+                                            OrderedDict(
+                                                ResourceId=key['TargetKeyId'],
+                                                ResourceName=key['TargetKeyId'],
+                                                ResourceType='KMS'))
+                            else:
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=key['TargetKeyId'],
+                                        ResourceName=key['TargetKeyId'],
+                                        ResourceType='KMS'))
+                        except Exception as e:
+                            if 'TargetKeyId' in str(e):
+                                continue
+            return output, evaluated_resources
+        except Exception as e:
+            raise Exception(str(e))
+
+    def aws_web_tier_kms_customer_master_key_in_use(self):
+        web_tier_tag_key = self.execution_args["args"]["web_tier_tag_key"]
+        web_tier_tag_value = self.execution_args["args"]["web_tier_tag_value"]
+        output, evaluated_resources = self.common_kms_customer_master_key_in_use(web_tier_tag_key, web_tier_tag_value)
+        return output, evaluated_resources
+
+    def aws_iam_trusted_entities_without_mfa(self, **kwargs):
+        output = list()
+        evaluated_resources = 0
+        compliant_federated_values = ['ge-saml-for-aws-mfa', 'ge-saml-for-aws-mfa-extended']
+        non_compliant_federated_values = 'ge-saml-for-aws'
+        not_applicable_annotation = 'NOT_APPLICABLE: Non GE Saml are not applicable'
+        try:
+            credentials = self.execution_args['auth_values']
+            iam_response = run_aws_operation(
+                credentials, 'iam', 'list_roles')
+            for roles in iam_response['Roles']:
+                evaluated_resources += 1
+                for statement in roles.get('AssumeRolePolicyDocument', {}).get('Statement', []):
+                    federated_value = statement.get('Principal', {}).get('Federated', {})
+                    if statement['Effect'] == 'Allow' and federated_value != None:
+                        is_federated_role = True
+                    if isinstance(federated_value, str):
+                        if any([federated_value.endswith(cfv) for cfv in compliant_federated_values]):
+                            compliant_federation = True
+                        elif federated_value.endswith(non_compliant_federated_values):
+                            noncompliant_federation = True
+                        else:
+                            not_applicable_federated = True
+                    else:
+                        compliance_flags = []
+                        for federated_value_item in federated_value:
+                            if any([federated_value_item.endswith(cfv) for cfv in compliant_federated_values]):
+                                compliance_flags.append(True)
+                            elif federated_value_item.endswith(non_compliant_federated_values):
+                                compliance_flags.append(False)
+                        if len(compliance_flags) == 0:
+                            not_applicable_federated = True
+                        elif all(compliance_flags):
+                            compliant_federation = True
+                        else:
+                            noncompliant_federation = True
+                if not is_federated_role:
+                    continue
+                if not_applicable_federated == True:
+                    print(not_applicable_annotation)
+                elif compliant_federation == True and noncompliant_federation == False:
+                    continue
+                else:
+                    output.append(
+                        OrderedDict(
+                            ResourceId=roles['RoleName'],
+                            ResourceName=roles['RoleName'],
+                            ResourceType='IAM_Roles'))
+            return output, evaluated_resources
+        except Exception as e:
+            raise Exception(str(e))
+
+    @staticmethod
+    def has_secure_transport(attribute):
+        secure_transport = False
+        if attribute['Effect'] != 'Deny':
+            return
+        if not attribute.get('Condition'):
+            return
+        if not attribute['Condition'].get('Bool'):
+            return
+        # Removing bool() as it's always returning true
+        # The logic in a proper policy will have "aws:SecureTransport": "false"
+        # So bool("false") resolves to true
+        if attribute['Condition']['Bool'].get('aws:SecureTransport') == "false":
+            secure_transport = True
+        return secure_transport
+
+    def aws_vpc_endpoints_encryption(self, **kwargs):
+        output = list()
+        evaluated_resources = 0
+        try:
+            credentials = self.execution_args['auth_values']
+            regions = [region.get('id') for region in self.execution_args['regions']]
+            for region in regions:
+                try:
+                    vpc_endpoints = run_aws_operation(
+                        credentials,
+                        'ec2',
+                        'describe_vpc_endpoints',
+                        region_name=region,
+                        response_key='VpcEndpoints')
+                except Exception as e:
+                    raise Exception(
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
+
+                for vpc_endpoint in vpc_endpoints:
+                    evaluated_resources += 1
+                    vpc_endpoint_has_secure_transport = False
+                    vpc_endpoint_policy_document = json.loads(vpc_endpoint['PolicyDocument'])['Statement']
+                    for attribute in vpc_endpoint_policy_document:
+                        if self.has_secure_transport(attribute):
+                            vpc_endpoint_has_secure_transport = True
+                    if not vpc_endpoint_has_secure_transport:
+                        output.append(
+                            OrderedDict(
+                                ResourceId=vpc_endpoint['VpcEndpointId'],
+                                ResourceName=vpc_endpoint['VpcEndpointId'],
+                                Resource='VPC'))
+            return output, evaluated_resources
+        except Exception as e:
+            raise Exception(str(e))
+
+    def aws_lambda_with_secure_environment_variables(self, **kwargs):
+        output = list()
+        evaluated_resources = 0
+        operation_args = {}
+        not_allowed_patterns = r'(?:key|secret|pass|pw|credential|token)(?!.*?(?:id|context|endpoint|url))'
+        credentials = self.execution_args['auth_values']
+        try:
+            regions = [region.get('id') for region in self.execution_args['regions']]
+            for region in regions:
+                try:
+                    lambda_response = run_aws_operation(
+                        credentials,
+                        'lambda',
+                        'list_functions',
+                        region_name=region,
+                        response_key='Functions')
+                except Exception as e:
+                    raise Exception(
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
+                for function in lambda_response:
+                    evaluated_resources += 1
+                    operation_args = {}
+                    operation_args.update(
+                        FunctionName=function['FunctionName'])
+                    try:
+                        versions = run_aws_operation(
+                            credentials,
+                            'lambda',
+                            'list_versions_by_function',
+                            region_name=region,
+                            operation_args=operation_args)
+                        versions = sorted(versions, key=lambda v: len(versions) if v['Version'] == '$LATEST' else int(
+                            v['Version']), reverse=True)
+                        for version in versions:
+                            version_evaluation = None
+                        # If not encrypted by customer managed CMK, compliant
+                        if 'KMSKeyArn' not in version:
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=function['FunctionName'],
+                                    ResourceName=function['FunctionName'],
+                                    ResourceType='lambda'))
+                            # If there are no environment variables, not applicable
+                        elif ('Environment' not in version) or ('Variables' not in version['Environment']):
+                            continue
+                        # Otherwise, testing the variables individually
+                        else:
+                            sensitive_variables = []
+                            insecure_variables = []
+                        for name, value in version['Environment']['Variables'].items():
+                            if re.search(not_allowed_patterns, name.lower()):
+                                sensitive_variables.append(name)
+                                # If empty, compliant
+                                if len(value) == 0:
+                                    pass
+                                # If too short to be a ciphertext, non-compliant
+                                # NOTE: this is a guess, seems to work fine so far
+                                elif len(value) < 64:
+                                    insecure_variables.append(name)
+                                else:
+                                    try:
+                                        # Ciphertexts are Base64 encoded, should be able to decode
+                                        decoded = base64.b64decode(value)
+                                        try:
+                                            # Looks like a ciphertext, validating with KMS
+                                            # The ciphertext format is not published, but KMS throws an error if invalid
+                                            operation_args.update(CiphertextBlob=decoded)
+                                            kms_client = run_aws_operation(
+                                                credentials,
+                                                'kms',
+                                                'decrypt',
+                                                region_name=region,
+                                                operation_args=operation_args)
+                                            # If KMS could decrypt it, it was a ciphertext, so compliant
+                                            pass
+                                        except ClientError as e:
+                                            # If KMS thinks it is not a ciphertext, non-compliant
+                                            if e.response['Error']['Code'] == 'InvalidCiphertextException':
+                                                insecure_variables.append(name)
+                                        except:
+                                            # If KMS throw any other error (e.g., access denied), it was likely a ciphertext, so compliant
+                                            pass
+                                    except:
+                                        # If not in Base64, not a ciphertext, so non-compliant
+                                        insecure_variables.append(name)
+                        if len(insecure_variables) != 0:
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=function['FunctionName'],
+                                    ResourceName=function['FunctionName'],
+                                    ResourceType='lambda'))
+                    except Exception as e:
+                        if "ResourceNotFoundError" in str(e):
+                            continue
+            return output, evaluated_resources
+        except Exception as e:
+            raise Exception(str(e))
+
+    def aws_vpc_nacl_alignment(self, **kwargs):
+        output = list()
+        evaluated_resources = 0
+        security_group_ports = []
+        try:
+            credentials = self.execution_args['auth_values']
+            regions = [region.get('id') for region in self.execution_args['regions']]
+            for region in regions:
+                try:
+                    network_response = run_aws_operation(
+                        credentials, 'ec2', 'describe_network_acls',
+                        region_name=region,
+                        response_key='NetworkAcls')
+                    security_groups_response = run_aws_operation(
+                        credentials, 'ec2', 'describe_security_groups',
+                        region_name=region,
+                        response_key='SecurityGroups')
+                except Exception as e:
+                    raise Exception(
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
+                for security_group in security_groups_response:
+                    for permission in security_group['IpPermissions']:
+                        try:
+                            if not permission.get('FromPort'):
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=security_group['GroupId'],
+                                        ResourceName=security_group['GroupId'],
+                                        Resource='EC2'))
+                            if permission['FromPort'] not in security_group_ports:
+                                security_group_ports.append(permission['FromPort'])
+                        except Exception as e:
+                            if 'FromPort' in str(e):
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=security_group['GroupId'],
+                                        ResourceName=security_group['GroupId'],
+                                        Resource='EC2'))
+                        for ip in permission['IpRanges']:
+                            if ip['CidrIp'] == '0.0.0.0/0':
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=security_group['GroupId'],
+                                        ResourceName=security_group['GroupId'],
+                                        Resource='EC2'))
+                for network_acl in network_response:
+                    evaluated_resources += 1
+                    for entry in network_acl['Entries']:
+                        port_range = entry.get('PortRange')
+                        if entry.get('Egress') == True:
+                            continue
+                        if entry.get('RuleAction') == 'deny':
+                            continue
+                        if entry['CidrBlock'] == '0.0.0.0/0':
+                            output.append(
+                                OrderedDict(
+                                    ResourceId=network_acl['NetworkAclId'],
+                                    ResourceName=network_acl['NetworkAclId'],
+                                    Resource='EC2'))
+                        if port_range:
+                            if not port_range.get('From'):
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=network_acl['NetworkAclId'],
+                                        ResourceName=network_acl['NetworkAclId'],
+                                        Resource='NACL'))
+                            if port_range['From'] not in security_group_ports:
+                                output.append(
+                                    OrderedDict(
+                                        ResourceId=network_acl['NetworkAclId'],
+                                        ResourceName=network_acl['NetworkAclId'],
+                                        Resource='EC2'))
+            return output, evaluated_resources
+        except Exception as e:
+            raise Exception(str(e))
+
+    def common_alb_http_to_https_redirection(self, **kwargs):
+        output = list()
+        operation_args = {}
+        evaluated_resources = 0
+        try:
+            credentials = self.execution_args['auth_values']
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
+            for region in regions:
+                try:
+                    alb_response = run_aws_operation(
+                        credentials,
+                        'elbv2',
+                        'describe_load_balancers',
+                        region_name=region)
+                except Exception as e:
+                    raise Exception(
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
+                for alb in alb_response['LoadBalancers']:
+                    evaluated_resources += 1
+                    operation_args.update(
+                        LoadBalancerArn=alb['LoadBalancerArn'])
+                    listener_info = run_aws_operation(
+                        credentials,
+                        'elbv2',
+                        'describe_listeners',
+                        operation_args=operation_args,
+                        region_name=region)
+                    for listener in listener_info['Listeners']:
+                        if listener['Protocol'] == 'HTTP':
+                            for redirect in listener['DefaultActions']:
+                                if redirect.get('RedirectConfig', {}).get('Protocol') != 'HTTPS':
+                                    output.append(
+                                        OrderedDict(
+                                            ResourceId=alb['LoadBalancerName'],
+                                            ResourceName=alb['LoadBalancerName'],
+                                            ResourceType="alb"))
+            return output, evaluated_resources
+        except Exception as e:
+            raise Exception(str(e))
+
+    def aws_elb_with_https_redirect(self):
+        output, evaluated_resources = self.common_alb_http_to_https_redirection()
+        return output, evaluated_resources
+
+    def aws_ec2_instance_with_https_redirect(self):
+        output, evaluated_resources = self.common_alb_http_to_https_redirection()
+        return output, evaluated_resources
+
+
+    def common_publicly_shared_ami(self, input_key, input_value):
+        output = list()
+        operation_args = {}
+        evaluated_resources = 0
+        try:
+            tag_key = input_key
+            tag_value = input_value
+            credentials = self.execution_args['auth_values']
+            regions = [region.get('id')
+                       for region in self.execution_args['regions']]
+            for region in regions:
+                try:
+                    operation_args.update(Filters=[
+                        {'Name': "tag:%s" % (tag_key),
+                         'Values': [tag_value]}],
+                        Owners=['self', ])
+                    ec2_response = run_aws_operation(
+                        credentials,
+                        'ec2',
+                        'describe_images',
+                        region_name=region,
+                        operation_args=operation_args)
+                except Exception as e:
+                    raise Exception(
+                        'Permission Denied or Region is not enabled to access resource. Error {}'.format(
+                            str(e)))
+                for images in ec2_response['Images']:
+                    evaluated_resources += 1
+                    if images['Public']:
+                        output.append(
+                            OrderedDict(
+                                ResourceId=images['ImageId'],
+                                ResourceName=images['ImageId'],
+                                ResourceType='EC2'))
+            return output, evaluated_resources
+        except Exception as e:
+            raise Exception(str(e))
+
+    def aws_app_tier_publicly_shared_ami(self):
+        app_tier_tag_key = self.execution_args['args']["app_tier_tag_key"]
+        app_tier_tag_value = self.execution_args['args']["app_tier_tag_value"]
+        output, evaluated_resources = self.common_publicly_shared_ami(app_tier_tag_key, app_tier_tag_value)
+        return output, evaluated_resources
