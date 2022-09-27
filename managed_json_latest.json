@@ -5,6 +5,9 @@
     "database_ref": "resource_inventory",
     "code_ref": "aws_s3_objects_aged",
     "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
     }
   },
   {
@@ -1932,6 +1935,10 @@
     "is_region_required": false,
     "code_ref": "aws_internet_gateway_authorized_vpc_only",
     "input_parameters": {
+      "authorized_vpc": {
+        "type": "string",
+        "optional": false
+      }
     }
   },
   {
@@ -2151,6 +2158,11 @@
     "is_region_required": true,
     "code_ref": "aws_rds_desired_instance_type",
     "input_parameters": {
+      "desired_instance_list": {
+        "type": "string",
+        "optional": false,
+        "description": "List of desired instances list comma separated"
+      }
     }
   },
   {
@@ -2220,6 +2232,11 @@
     "is_region_required": false,
     "code_ref": "aws_s3_bucket_policy_grantee_check",
     "input_parameters": {
+      "account_access_list": {
+        "type": "string",
+        "description": "Comma Separated Amazon Account Access List",
+        "optional": false
+      }
     }
   },
   {
@@ -2259,6 +2276,10 @@
     "is_region_required": false,
     "code_ref": "aws_audit_iam_policy_blacklisted_check",
     "input_parameters": {
+      "policy_arns": {
+        "type": "string",
+        "optional": false
+      }
     }
   },
   {
@@ -2291,6 +2312,14 @@
     "is_region_required": true,
     "code_ref": "aws_vpn_tunnel_redundancy",
     "input_parameters": {
+      "filter_name": {
+        "type": "string",
+        "optional": false
+      },
+      "filter_values": {
+        "type": "string",
+        "optional": false
+      }
     }
   },
   {
@@ -2360,7 +2389,9 @@
     "code_ref": "aws_rds_reserved_db_instance_expiration",
     "input_parameters": {
       "expiry_days": {
-        "type": "string"
+        "type": "number",
+        "optional": true,
+        "default": 7
       }
     }
   },
@@ -2373,7 +2404,9 @@
     "code_ref": "aws_rds_reserved_db_instance_expiration",
     "input_parameters": {
       "expiry_days": {
-        "type": "string"
+        "type": "number",
+        "optional": true,
+        "default": 30
       }
     }
   },
@@ -2398,42 +2431,12 @@
     }
   },
   {
-    "name": "aws_ec2_classice_elastic_ip_address_limit",
-    "query_source": "MongoDB",
-    "database_ref": "heatstack",
-    "auth_values_required": true,
-    "is_region_required": true,
-    "code_ref": "aws_ec2_classice_elastic_ip_address_limit",
-    "input_parameters": {
-    }
-  },
-  {
     "name": "AWS_Audit_ELB_Cross-Zone_Load_Balancing_Enabled",
     "query_source": "MongoDB",
     "database_ref": "heatstack",
     "auth_values_required": true,
     "is_region_required": true,
     "code_ref": "aws_elb_cross_zone_load_balancing_enabled",
-    "input_parameters": {
-    }
-  },
-  {
-    "name": "AWS_Audit_ELBv2_Access_Log",
-    "query_source": "MongoDB",
-    "database_ref": "heatstack",
-    "auth_values_required": true,
-    "is_region_required": true,
-    "code_ref": "aws_elbv2_access_log",
-    "input_parameters": {
-    }
-  },
-  {
-    "name": "AWS_Cloud_Trail_S3_Dataevents_Enabled",
-    "query_source": "MongoDB",
-    "database_ref": "heatstack",
-    "auth_values_required": true,
-    "is_region_required": false,
-    "code_ref": "aws_cloudtrail_enable_object_lock_for_s3_buckets",
     "input_parameters": {
     }
   },
@@ -2692,7 +2695,12 @@
     "auth_values_required": true,
     "is_region_required": true,
     "code_ref": "aws_iam_unapproved_users_existence",
-    "input_parameters": {}
+    "input_parameters": {
+      "approved_users": {
+        "type": "string",
+        "optional": false
+      }
+    }
   },
   {
     "name": "AWS_AUDIT_CHECK_FOR_UNTRUSTED_CROSS_ACCOUNT_IAM_ROLES",
@@ -3015,6 +3023,56 @@
     "input_parameters": {}
   },
   {
+    "name": "AWS_Audit_S3_Blacklisted_Actions_Prohibited",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_s3_blacklisted_actions_prohibited",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_Audit_S3_Bucket_Authenticated_Users_WRITE_Access",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_s3_authenticated_users_write_control_access",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_Audit_VPC_Endpoint_Exposed",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_vpc_endpoint_cross_account_access",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_Audit_VPC_Peering_Connections_Route_Tables_Access",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_vpc_peering_least_access",
+    "input_parameters": {
+    }
+  },
+  {
+    "name": "AWS_Audit_EC2_VPC_Elastic_IP_Address_Limit",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_classice_elastic_ip_address_limit",
+    "input_parameters": {
+    }
+  },
+  {
     "name": "AWS_AUDIT_UNRESTRICTED_RDP_ACCESS",
     "query_source": "MongoDB",
     "database_ref": "heatstack",
@@ -3313,16 +3371,6 @@
     }
   },
   {
-    "name": "AWS_Audit_S3_Buckets_with_Website_Configuration_Enabled",
-    "query_source": "MongoDB",
-    "database_ref": "heatstack",
-    "auth_values_required": true,
-    "is_region_required": false,
-    "code_ref": "aws_s3_website_configuration_enabled",
-    "input_parameters": {
-    }
-  },
-  {
     "name": "AWS_Audit_ELB_ACM_Certificate_Required",
     "query_source": "MongoDB",
     "database_ref": "heatstack",
@@ -3483,16 +3531,6 @@
     }
   },
   {
-    "name": "aws_vpn_tunnel_redundancy",
-    "query_source": "MongoDB",
-    "database_ref": "heatstack",
-    "auth_values_required": true,
-    "is_region_required": true,
-    "code_ref": "aws_vpn_tunnel_redundancy",
-    "input_parameters": {
-    }
-  },
-  {
     "name": "aws_iam_valid_iam_identity_providers",
     "query_source": "MongoDB",
     "database_ref": "heatstack",
@@ -3563,22 +3601,12 @@
     }
   },
   {
-    "name": "AWS_Audit_Peering_VPC_Least_Access",
+    "name": "AWS_EC2_INSTANCES_WITH_BLACKLISTED_INSTANCE_TYPES",
     "query_source": "MongoDB",
     "database_ref": "heatstack",
     "auth_values_required": true,
     "is_region_required": true,
-    "code_ref": "aws_vpc_peering_least_access",
-    "input_parameters": {
-    }
-  },
-  {
-    "name": "aws_ec2_managedinstance_applications_blacklisted",
-    "query_source": "MongoDB",
-    "database_ref": "heatstack",
-    "auth_values_required": true,
-    "is_region_required": true,
-    "code_ref": "aws_ec2_managedinstance_applications_blacklisted",
+    "code_ref": "aws_ec2_instances_with_blacklisted_instance_types",
     "input_parameters": {
       "blocklisted_instance_type": {
         "type": "string"
@@ -3593,6 +3621,14 @@
     "is_region_required": true,
     "code_ref": "aws_attach_policy_iam_roles_app_tier_ec2_instances",
     "input_parameters": {
+      "app_tier_tag": {
+        "type": "string",
+        "optional": false
+      },
+      "app_tier_tag_value": {
+        "type": "string",
+        "optional": false
+      }
     }
   },
   {
@@ -3613,6 +3649,10 @@
     "is_region_required": true,
     "code_ref": "aws_vpc_peer_connections_acc_outside_organization",
     "input_parameters": {
+      "valid_account_list": {
+        "type": "string",
+        "optional": false
+      }
     }
   },
   {
@@ -3772,16 +3812,6 @@
     "is_region_required": true,
     "code_ref": "aws_elb_security_policy",
     "input_parameters": {}
-  },
-  {
-    "name": "AWS_Audit_ELBv2_ALB_Listener_Security",
-    "query_source": "MongoDB",
-    "database_ref": "heatstack",
-    "auth_values_required": true,
-    "is_region_required": true,
-    "code_ref": "aws_elbv2_alb_listener_security",
-    "input_parameters": {
-    }
   },
   {
     "name": "AWS_Audit_ELBv2_ALB_Security_Group",
@@ -6680,5 +6710,193 @@
     },
     "service_account_ref": "CloudAccountID",
     "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_DEFAULT_SECURITY_GROUP_CLOSED",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_default_security_group_closed",
+    "input_parameters": {}
+  },
+  {
+    "name": "AZURE_SQL_MANAGED_INSTANCE_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AzureIdleSQLMI_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ROUTE53_RESOLVER_INBOUND_ENDPOINTS_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWS_RESOLVER_INBOUND_ENDPOINTS_IDLE",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_ROUTE53_RESOLVER_OUTBOUND_ENDPOINTS_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWS_RESOLVER_OUTBOUND_ENDPOINTS_IDLE",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_WEB_TIER_KMS_CUSTOMER_MASTER_KEY_IN_USE",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_web_tier_kms_customer_master_key_in_use",
+    "input_parameters": {
+      "web_tier_tag_key": {
+        "type": "string",
+        "optional": false
+      },
+      "web_tier_tag_value": {
+        "type": "string",
+        "optional": false
+      }
+    }
+  },
+  {
+    "name": "AWS_IAM_TRUSTED_ENTITIES_WITHOUT_MFA",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": false,
+    "code_ref": "aws_iam_trusted_entities_without_mfa",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_VPC_ENDPOINTS_ENCRYPTION",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_vpc_endpoints_encryption",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_LAMBDA_WITH_SECURE_ENVIRONMENT_VARIABLES",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_lambda_with_secure_environment_variables",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_VPC_NACL_ALIGNMENT",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_vpc_nacl_alignment",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EC2_INSTANCE_CHANGES_ALARM_CS_POLICY",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_cw_metrics_enabled",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_EMR_CLUSTERS_IDLE",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWSIdleEMRClusters_V2",
+    "input_parameters": {
+      "ElapsedDays": {
+        "type": "string"
+      }
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EMR_CLUSTERS_UNHEALTHY_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWSGovEMRClustersUnHealthyRecmnd_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EMR_INSTANCES_FLEETS_ALLOCATION_STRATEGY_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWSGovEMRInstancesFleetStrategyRecmnd_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EMR_INSTANCES_SPOT_RECOMMEND",
+    "query_source": "SQL",
+    "query_source_identifier": "CostPolicy.sp_AWSConfigEMRInstancesSpotRecmnd_V2",
+    "input_parameters": {
+    },
+    "service_account_ref": "CloudAccountID",
+    "resource_type_ref": "ResourceType",
+    "resource_ref": "Resource",
+    "assessment_ref": "IsAssessment"
+  },
+  {
+    "name": "AWS_EC2_INSTANCE_WITH_HTTPS_REDIRECT",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_ec2_instance_with_https_redirect",
+    "input_parameters": {}
+  },
+  {
+    "name": "AWS_AUDIT_APP_TIER_PUBLICLY_SHARED_AMI",
+    "query_source": "MongoDB",
+    "database_ref": "heatstack",
+    "auth_values_required": true,
+    "is_region_required": true,
+    "code_ref": "aws_app_tier_publicly_shared_ami",
+    "input_parameters": {
+      "app_tier_tag_key": {
+        "type": "string",
+        "optional": false
+      },
+      "app_tier_tag_value": {
+        "type": "string",
+        "optional": false
+      }
+    }
   }
 ]
